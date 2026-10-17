@@ -1,0 +1,96 @@
+{
+  "$source": "Extracted from https://code10it.com/ on 2026-10-17 (computed styles, desktop viewport)",
+  "colors": {
+    "brand": {
+      "primary": "#FAB612",
+      "primaryAlt": "#F5B913",
+      "accent": "#F1980A",
+      "error": "#FF0000",
+      "success": "#2E7D32"
+    },
+    "background": {
+      "default": "#FFFFFF",
+      "light": "#F5F5F5",
+      "dark": "#4D4D4D",
+      "darkTranslucent": "rgba(77, 77, 77, 0.79)",
+      "black": "#000000",
+      "overlay": "rgba(255, 255, 255, 0.1)"
+    },
+    "text": {
+      "primary": "#4D4D4D",
+      "secondary": "#69727D",
+      "muted": "#808285",
+      "heading": "#4D4D4D",
+      "link": "#FAB612",
+      "onDark": "#FFFFFF",
+      "onDarkMuted": "rgba(238, 238, 238, 0.9)",
+      "input": "#142341"
+    },
+    "border": {
+      "input": "#CCCCCC"
+    },
+    "neutral": {
+      "buttonDark": "#54595F"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "primary": "\"Montserrat\", sans-serif"
+    },
+    "fontWeights": { "regular": 400, "medium": 500, "semibold": 600, "bold": 700 },
+    "fontSize": { "sm": "14px", "base": "15px", "md": "16px", "lg": "20px", "xl": "25px" },
+    "lineHeight": { "tight": "1.3", "heading": "1.4", "base": "1.65" },
+    "textTransform": { "sectionTitle": "uppercase", "subheading": "capitalize" }
+  },
+  "spacing": {
+    "1": "4px", "2": "8px", "3": "12px", "4": "16px",
+    "5": "20px", "6": "24px", "8": "32px", "10": "40px"
+  },
+  "borderRadius": {
+    "none": "0px", "sm": "4px", "md": "10px", "lg": "12px",
+    "full": "999px", "circle": "50%"
+  },
+  "shadow": {
+    "card": "0 0 10px 0 rgba(0, 0, 0, 0.13)"
+  },
+  "components": {
+    "button": {
+      "primary": {
+        "backgroundColor": "#FAB612",
+        "color": "#FFFFFF",
+        "padding": "15px 30px",
+        "borderRadius": "10px",
+        "fontSize": "15px",
+        "fontWeight": 600,
+        "border": "none"
+      },
+      "dark": {
+        "backgroundColor": "#4D4D4D",
+        "color": "#FFFFFF",
+        "padding": "5px 16px",
+        "borderRadius": "999px",
+        "fontSize": "15px",
+        "fontWeight": 600
+      }
+    },
+    "topBar": { "backgroundColor": "#FAB612", "color": "#4D4D4D", "padding": "5px 0", "fontSize": "15px" },
+    "header": { "backgroundColor": "#FFFFFF", "fontSize": "15px", "logoWidth": "128px" },
+    "nav": { "color": "#4D4D4D", "activeColor": "#FAB612", "fontSize": "15px", "fontWeight": 600 },
+    "card": {
+      "backgroundColor": "#FFFFFF",
+      "borderRadius": "12px",
+      "boxShadow": "0 0 10px 0 rgba(0, 0, 0, 0.13)",
+      "padding": "24px"
+    },
+    "cardDark": { "backgroundColor": "#4D4D4D", "color": "#FFFFFF", "borderRadius": "0px" },
+    "input": {
+      "backgroundColor": "#FFFFFF",
+      "color": "#142341",
+      "border": "1px solid #CCCCCC",
+      "borderRadius": "0px",
+      "padding": "8px",
+      "fontSize": "14px",
+      "height": "42px"
+    }
+  }
+}
