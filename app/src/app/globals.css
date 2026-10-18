@@ -4,12 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Code10 brand theme. Official `code10-design` skill values (colors_and_type.css,
+ * preview/buttons.html, preview/forms.html) win over the website extraction in
+ * docs/design-guidelines.md. Light theme only: the brand has no dark mode.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -27,6 +33,9 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -39,82 +48,76 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
+  /*
+   * Skill radii: buttons, inputs and cards are all 8px (--radius-3), small UI
+   * 4px (--radius-2). shadcn buttons/inputs use `rounded-lg`, cards `rounded-xl`.
+   */
+  --radius-sm: 4px;
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
+  /* Skill shadows: shadow-1 resting cards, shadow-2 hover, shadow-3 popovers. */
+  --shadow-card: 0 1px 2px rgb(20 20 20 / 0.06);
+  --shadow-card-hover: 0 4px 12px rgb(20 20 20 / 0.08);
+  --shadow-overlay: 0 12px 32px rgb(20 20 20 / 0.1);
+  --shadow-accent: 0 8px 24px rgb(255 183 2 / 0.35);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #ffffff;
+  /* Primary ink (c10-ink-600); never pure black. */
+  --foreground: #4d4d4d;
+  --card: #ffffff;
+  --card-foreground: #4d4d4d;
+  --popover: #ffffff;
+  --popover-foreground: #4d4d4d;
+  /*
+   * Code10 amber (c10-amber-500) with dark ink on it (fg-on-accent).
+   * #4D4D4D on #FFB702 = 4.84:1, passes WCAG AA for normal text.
+   * White on #FFB702 = 1.75:1, fails; do not use white text on amber.
+   */
+  --primary: #ffb702;
+  --primary-foreground: #4d4d4d;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #4d4d4d;
+  --muted: #f5f5f5;
+  /* fg-2: 5.74:1 on white. */
+  --muted-foreground: #666666;
+  /* bg-muted: neutral hover surface. */
+  --accent: #ebebeb;
+  --accent-foreground: #4d4d4d;
+  /* c10-danger: white on it 5.44:1 (AA); as text on white 5.44:1 (AA). */
+  --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+  /*
+   * c10-success: white on it 4.25:1, AA only for large/bold text (>=18.66px
+   * bold or >=24px) and UI graphics (3:1); keep success labels bold.
+   */
+  --success: #2e8b57;
+  --success-foreground: #ffffff;
+  /* border-1 for cards and dividers, border-2 for form fields. */
+  --border: #d6d6d6;
+  --input: #b8b8b8;
+  /* Focus ring: 2px amber (skill: Focus ring). */
+  --ring: #ffb702;
+  --chart-1: #ffb702;
+  --chart-2: #4d4d4d;
+  --chart-3: #8a8a8a;
+  --chart-4: #b37f00;
+  --chart-5: #2c6bb8;
+  --radius: 8px;
+  --radius-card: 8px;
+  --sidebar: #f5f5f5;
+  --sidebar-foreground: #4d4d4d;
+  --sidebar-primary: #ffb702;
+  --sidebar-primary-foreground: #4d4d4d;
+  --sidebar-accent: #ebebeb;
+  --sidebar-accent-foreground: #4d4d4d;
+  --sidebar-border: #d6d6d6;
+  --sidebar-ring: #ffb702;
 }
 
 @layer base {
