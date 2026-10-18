@@ -4,6 +4,22 @@ Extracted from [code10it.com](https://code10it.com/) on 2026-10-17 with the Play
 
 > Values come from the public website, not from an official brand book. Where they disagree with official Code10 brand material (e.g. the `code10-design` skill), the official material wins.
 
+## Tokens Used in the App
+
+The app (`app/src/app/globals.css`) follows the `code10-design` skill, not the extracted website values below (decided 2026-10-18, T2.4).
+
+| Role | Value | Contrast |
+|---|---|---|
+| Primary (buttons, focus ring) | `#FFB702` with `#4D4D4D` text | 4.84:1 |
+| Foreground | `#4D4D4D` (never pure black) | 8.45:1 on white |
+| Muted foreground | `#666666` | 5.74:1 on white |
+| Destructive | `#C0392B` with white text | 5.44:1 |
+| Success | `#2E8B57`; status badge uses `#287A4C` with white text | 5.28:1 (badge) |
+| Border / input border | `#D6D6D6` / `#B8B8B8` | input border 1.98:1, below the 3:1 target; open for T6.2 |
+| Radius | 8px buttons, inputs and cards; 4px small; 12px largest | |
+
+Use the website values only as a visual reference for Manual QA (`assets/homepage.png`).
+
 ## Assets
 
 | Asset | Path | Notes |
