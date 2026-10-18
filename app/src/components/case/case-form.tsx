@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { Controller, useForm, useWatch, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CASE_TYPES, CATEGORIES, LIMITS, todayInWarsaw, type CaseType, type Category } from "@/lib/domain";
 import { pl, type ValidationErrorCode } from "@/lib/i18n/pl";
-import { createCaseFormSchema, ERROR_CODES, type CaseForm as CaseFormValues, type CaseFormInput } from "@/lib/schemas";
+import {
+  createCaseFormSchema,
+  ERROR_CODES,
+  type CaseForm as CaseFormValues,
+  type CaseFormInput,
+  type ErrorCode,
+} from "@/lib/schemas";
 
 const caseTypes = Object.entries(CASE_TYPES) as [CaseType, string][];
 const categories = Object.entries(CATEGORIES) as [Category, string][];
@@ -83,7 +89,6 @@ export function CaseForm({ defaultValues, disabled, bannerError, onSubmit }: Cas
     control,
     register,
     handleSubmit,
-    setError,
     clearErrors,
     setFocus,
     formState: { errors },
@@ -107,12 +112,22 @@ export function CaseForm({ defaultValues, disabled, bannerError, onSubmit }: Cas
   const caseType = useWatch({ control, name: "caseType" }) as CaseType | undefined;
   const reasonLength = (useWatch({ control, name: "reason" }) ?? "").length;
 
+  // A rejected photo selection keeps the held file (AC-10). Its error lives outside RHF's errors,
+  // which the resolver replaces on every submit, and it blocks submitting: the customer tried to
+  // replace the photo, so sending the old one would not be what they meant.
+  const [photoRejection, setPhotoRejection] = useState<ErrorCode>();
+
+  const focusFirstInvalid = (isInvalid: (name: (typeof FIELD_ORDER)[number]) => boolean) => {
+    const first = FIELD_ORDER.find(isInvalid);
+    if (first) setFocus(first);
+  };
+
   const submit = handleSubmit(
-    ({ image, ...values }) => onSubmit(values, image),
-    (invalid) => {
-      const first = FIELD_ORDER.find((name) => invalid[name]);
-      if (first) setFocus(first);
+    ({ image, ...values }) => {
+      if (photoRejection) focusFirstInvalid((name) => name === "image");
+      else onSubmit(values, image);
     },
+    (invalid) => focusFirstInvalid((name) => Boolean(invalid[name]) || (name === "image" && Boolean(photoRejection))),
   );
 
   const caseTypeIds = ids("caseType");
@@ -128,7 +143,7 @@ export function CaseForm({ defaultValues, disabled, bannerError, onSubmit }: Cas
   const modelError = errorText(errors.modelName);
   const dateError = errorText(errors.purchaseDate);
   const reasonError = errorText(errors.reason);
-  const imageError = errorText(errors.image);
+  const imageError = photoRejection ? pl.validation[photoRejection] : errorText(errors.image);
 
   const describedBy = (error: string | undefined, errorId: string) => (error ? errorId : undefined);
 
@@ -302,8 +317,8 @@ export function CaseForm({ defaultValues, disabled, bannerError, onSubmit }: Cas
                 error={imageError}
                 onChange={(file, code) => {
                   field.onChange(file);
-                  if (code) setError("image", { type: "validate", message: code });
-                  else clearErrors("image");
+                  setPhotoRejection(code);
+                  if (!code) clearErrors("image");
                 }}
               />
             </div>

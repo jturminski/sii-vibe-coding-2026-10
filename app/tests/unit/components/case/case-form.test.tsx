@@ -208,6 +208,71 @@ describe("CaseForm (PRD AC-01–07, AC-11, §9.1)", () => {
     expect(await screen.findByText(pl.validation.UNSUPPORTED_FORMAT)).toBeInTheDocument();
   });
 
+  describe("a rejected photo after a valid one (AC-10)", () => {
+    const notAnImage = () => new File(["to nie jest obraz"], "notes.png", { type: "image/png" });
+
+    async function fillValid(user: ReturnType<typeof userEvent.setup>, container: HTMLElement, file: File) {
+      await user.click(screen.getByRole("radio", { name: "Zwrot" }));
+      await pickCategory(user, "Laptop");
+      await user.type(screen.getByRole("textbox", { name: pl.form.labels.modelName }), "Dell XPS 13");
+      fireEvent.change(byLabel(pl.form.labels.purchaseDate), { target: { value: "2026-01-15" } });
+      fireEvent.change(fileInput(container), { target: { files: [file] } });
+      await screen.findByText(file.name);
+    }
+
+    it("keeps the held file, shows the error and blocks submit until a valid file is chosen", async () => {
+      const { user, onSubmit, container } = setup();
+      const held = imageFile();
+      await fillValid(user, container, held);
+
+      fireEvent.change(fileInput(container), { target: { files: [notAnImage()] } });
+      expect(await screen.findByText(pl.validation.UNSUPPORTED_FORMAT)).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: held.name })).toBeInTheDocument();
+
+      await user.click(submitButton());
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(screen.getByText(pl.validation.UNSUPPORTED_FORMAT)).toBeInTheDocument();
+      await waitFor(() => expect(byLabel(pl.form.labels.photo)).toHaveFocus());
+
+      const next = new File([LAPTOP_JPEG], "next.png", { type: "image/png" });
+      fireEvent.change(fileInput(container), { target: { files: [next] } });
+      await screen.findByText(next.name);
+      expect(screen.queryByText(pl.validation.UNSUPPORTED_FORMAT)).not.toBeInTheDocument();
+
+      await user.click(submitButton());
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(onSubmit.mock.calls[0]?.[1]).toBe(next);
+    });
+
+    it("keeps the photo error alongside other field errors on submit", async () => {
+      const { user, onSubmit, container } = setup();
+      fireEvent.change(fileInput(container), { target: { files: [imageFile()] } });
+      await screen.findByText("laptop-1.png");
+      fireEvent.change(fileInput(container), { target: { files: [notAnImage()] } });
+      await screen.findByText(pl.validation.UNSUPPORTED_FORMAT);
+
+      await user.click(submitButton());
+
+      await waitFor(() => expect(screen.getAllByText(required)).toHaveLength(4));
+      expect(screen.getByText(pl.validation.UNSUPPORTED_FORMAT)).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Zwrot" })).toHaveFocus();
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("clears the photo error when Usuń is clicked", async () => {
+      const { user, container } = setup();
+      fireEvent.change(fileInput(container), { target: { files: [imageFile()] } });
+      await screen.findByText("laptop-1.png");
+      fireEvent.change(fileInput(container), { target: { files: [notAnImage()] } });
+      await screen.findByText(pl.validation.UNSUPPORTED_FORMAT);
+
+      await user.click(screen.getByRole("button", { name: pl.form.removeFile }));
+
+      expect(screen.queryByText(pl.validation.UNSUPPORTED_FORMAT)).not.toBeInTheDocument();
+      expect(screen.queryByText("laptop-1.png")).not.toBeInTheDocument();
+    });
+  });
+
   it("disabled disables every field and the submit button (AC-11)", () => {
     setup({ disabled: true });
     for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
