@@ -28,6 +28,10 @@ describe("pl strings", () => {
       );
     });
 
+    it("has a neutral reason label for when no case type is chosen yet", () => {
+      expect(pl.form.reasonLabelDefault).toBe("Opis zgłoszenia");
+    });
+
     it("has the photo hints per case type", () => {
       expect(pl.form.photoHint.RETURN).toBe(
         "Zrób zdjęcie całego urządzenia, aby było widać, że nie jest uszkodzone ani używane.",
