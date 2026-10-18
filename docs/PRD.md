@@ -115,7 +115,7 @@ The store needs a first-line assessment that applies the written terms consisten
 - **AC-07** The date picker does not allow a date later than today. A typed future date shows "Data zakupu nie może być z przyszłości".
 - **AC-08** The upload accepts only JPEG, PNG and WebP images, detected by file content, not by extension. A file whose content is JPEG but whose extension is `.png` is accepted. Any other file shows "Dozwolone formaty: JPG, PNG, WebP".
 - **AC-09** A file larger than 10 MB is rejected before submission with "Plik przekracza limit 10 MB".
-- **AC-10** After selecting a valid image, the form shows a thumbnail preview, the file name and a **Usuń** (Remove) action. Selecting another file replaces the previous one. At most one image is held.
+- **AC-10** After selecting a valid image, the form shows a thumbnail preview, the file name and a **Usuń** (Remove) action. Selecting another valid file replaces the previous one. A rejected selection (wrong format, too large, several files) shows its error but keeps the previously held image. At most one image is held.
 - **AC-11** While a submission is processing, the submit button and all fields are disabled, so a second click does not create a second submission.
 
 ### Image analysis
