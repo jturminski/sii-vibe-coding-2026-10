@@ -16,6 +16,8 @@ export const pl = {
       COMPLAINT: "Opis problemu",
       RETURN: "Powód zwrotu (opcjonalnie)",
     },
+    /** Reason label before a case type is chosen. */
+    reasonLabelDefault: "Opis zgłoszenia",
     categoryPlaceholder: "Wybierz kategorię",
     modelPlaceholder: "np. Samsung Galaxy S24",
     photoHint: {

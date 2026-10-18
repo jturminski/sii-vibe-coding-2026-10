@@ -156,6 +156,62 @@ describe("ImageDropzone (AC-08, AC-09, AC-10)", () => {
     expect(onChange).toHaveBeenLastCalledWith(null, "MULTIPLE_FILES");
   });
 
+  describe("a rejected selection keeps the held image (AC-10)", () => {
+    const rejections: [string, (container: HTMLElement) => void, ErrorCode][] = [
+      [
+        "a text file",
+        (container) => select(container, new File(["to nie jest obraz"], "fake.jpg", { type: "image/jpeg" })),
+        "UNSUPPORTED_FORMAT",
+      ],
+      [
+        "an 11 MB file",
+        (container) => select(container, new File([new Uint8Array(11 * 1024 * 1024)], "big.jpg", { type: "image/jpeg" })),
+        "FILE_TOO_LARGE",
+      ],
+      [
+        "two dropped files",
+        () =>
+          fireEvent.drop(screen.getByTestId("image-dropzone"), {
+            dataTransfer: { files: [jpegFile("a.png"), jpegFile("b.png")] },
+          }),
+        "MULTIPLE_FILES",
+      ],
+    ];
+
+    it.each(rejections)("%s shows the error and keeps the previous thumbnail and name", async (_, reject, code) => {
+      const onChange = vi.fn();
+      const { container } = render(<Harness onChange={onChange} />);
+      const held = jpegFile("held.png");
+      select(container, held);
+      const img = await screen.findByRole("img", { name: "held.png" });
+      const url = img.getAttribute("src");
+
+      reject(container);
+
+      expect(await screen.findByText(pl.validation[code])).toBeInTheDocument();
+      expect(onChange).toHaveBeenLastCalledWith(held, code);
+      expect(screen.getByRole("img", { name: "held.png" })).toHaveAttribute("src", url);
+      expect(screen.getByText("held.png")).toBeInTheDocument();
+      expect(revokeObjectURL).not.toHaveBeenCalledWith(url);
+    });
+
+    it("clears the error when a valid file is selected afterwards", async () => {
+      const onChange = vi.fn();
+      const { container } = render(<Harness onChange={onChange} />);
+      select(container, jpegFile("held.png"));
+      await screen.findByRole("img", { name: "held.png" });
+      select(container, new File(["to nie jest obraz"], "fake.jpg", { type: "image/jpeg" }));
+      await screen.findByText(pl.validation.UNSUPPORTED_FORMAT);
+
+      const next = jpegFile("next.png");
+      select(container, next);
+
+      await screen.findByRole("img", { name: "next.png" });
+      expect(onChange).toHaveBeenLastCalledWith(next, undefined);
+      expect(screen.queryByText(pl.validation.UNSUPPORTED_FORMAT)).not.toBeInTheDocument();
+    });
+  });
+
   it("disables the controls and ignores drops when disabled", () => {
     const onChange = vi.fn();
     const { container } = render(<ImageDropzone value={null} onChange={onChange} disabled />);

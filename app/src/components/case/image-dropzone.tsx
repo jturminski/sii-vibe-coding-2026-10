@@ -31,7 +31,10 @@ async function validateImage(file: File): Promise<ErrorCode | undefined> {
 
 export type ImageDropzoneProps = {
   value: File | null;
-  /** Called with the accepted file, or with `null` and an error code when the selection is rejected. */
+  /**
+   * Called with the accepted file and no code, or, when a selection is rejected, with the file
+   * still held (`value`, unchanged) and the error code (AC-10). Usuń reports `null` and no code.
+   */
   onChange: (file: File | null, errorCode?: ErrorCode) => void;
   /** Already translated error message shown under the drop area. */
   error?: string;
@@ -73,13 +76,14 @@ export function ImageDropzone({ value, onChange, error, disabled, hint, id }: Im
     const request = ++requestRef.current;
     resetInput();
     if (list.length > 1) {
-      onChange(null, ERROR_CODES.MULTIPLE_FILES);
+      onChange(value, ERROR_CODES.MULTIPLE_FILES);
       return;
     }
     const code = await validateImage(file);
     // Ignore a slower validation that finished after a newer selection.
     if (request !== requestRef.current) return;
-    onChange(code ? null : file, code);
+    // A rejected selection keeps the previously held image (AC-10).
+    onChange(code ? value : file, code);
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
