@@ -1,60 +1,58 @@
-# App
+# Hardware Service Decision Copilot — App
 
-This folder will contain the application built during the course.
+Next.js 16 (App Router, TypeScript strict) app for the MVP described in [`../docs/PRD.md`](../docs/PRD.md). Architecture: [`../docs/ADR/`](../docs/ADR/).
 
-## How to start
+## Getting started
 
-The app is scaffolded live during the course through a structured process:
+1. Node.js ≥ 20.9 (developed on Node 24) and npm 11.
+2. `npm ci`
+3. `cp .env.example .env.local` and set `OPENROUTER_API_KEY` (and `LLM_MODEL` if different).
+4. `npm run dev` → http://localhost:3000
 
-1. **Research** — use agents to research and validate the project idea
-2. **PRD** — generate a Product Requirements Document (`../docs/PRD.md`)
-3. **ADR** — generate Architecture Decision Records (`../docs/ADR/`) to choose the tech stack
-4. **Scaffold** — use the chosen boilerplate (`create-next-app`, AI SDK starter, Mastra, etc.)
-5. **Implement** — build features with agents using TDD
+Scripts and agent rules: see [`AGENTS.md`](AGENTS.md).
 
-## Checklist
+## Course scaffolding checklist
 
-Use this checklist during scaffolding. Some items are provided by the boilerplate (e.g. `create-next-app` ships `tsconfig.json`, ESLint config). Others you add explicitly.
+Some items are provided by the boilerplate (`create-next-app` ships `tsconfig.json`, ESLint config). Others were added explicitly.
 
 ### Project setup
-- [ ] Choose framework (Next.js, Express+Vite, Mastra, other) — record in ADR
-- [ ] Initialize project (e.g. `npx create-next-app@latest` or equivalent)
-- [ ] TypeScript config (`tsconfig.json`)
-- [ ] Package manager chosen (npm / pnpm / bun)
+- [x] Choose framework — Next.js 16 App Router (ADR-000)
+- [x] Initialize project — `create-next-app@16.4.2` (ADR-001)
+- [x] TypeScript config (`tsconfig.json`, strict + `noUncheckedIndexedAccess`)
+- [x] Package manager chosen — npm
 
 ### Code quality
-- [ ] ESLint config (`eslint.config.js`)
+- [x] ESLint config (`eslint.config.mjs`)
 - [ ] Prettier config (`.prettierrc`, `.prettierignore`)
 - [ ] `.editorconfig` (optional but recommended)
 
 ### Testing
-- [ ] Unit/integration test runner (Vitest / Jest)
-- [ ] E2E test runner (Playwright)
-- [ ] Test setup file (e.g. `test-setup.ts` with Testing Library matchers)
+- [x] Unit/integration test runner — Vitest (`vitest.config.ts`)
+- [x] E2E test runner — Playwright (`playwright.config.ts`)
+- [x] Test setup file (`tests/setup.ts` with Testing Library matchers and an OpenRouter network guard)
 
 ### Environment
-- [ ] `.env.example` with required env vars (API keys, ports)
-- [ ] `.env` created locally (gitignored)
-- [ ] `.gitignore` (node_modules, .env, build output, etc.)
+- [x] `.env.example` with required env vars
+- [ ] `.env.local` created locally (gitignored) — each developer adds their own OpenRouter key
+- [x] `.gitignore` (node_modules, .env*, build output)
 
 ### AI integration
-- [ ] Vercel AI SDK (`ai` package) or equivalent
-- [ ] API route / endpoint for chat
-- [ ] Model configuration (provider, model name, API key from env)
+- [x] Vercel AI SDK (`ai` 7, `@ai-sdk/react` 4) + `@openrouter/ai-sdk-provider`
+- [ ] API route / endpoint for chat (ADR-002)
+- [x] Model configuration — env validation and model fallback in `src/server/env.ts`
 
 ### Design
-- [ ] Design tokens (`../assets/design-tokens.json`)
-- [ ] Tailwind CSS or equivalent
-- [ ] Logo and favicon (`../assets/`)
-- [ ] Design system doc (`../docs/design-guidelines.md`)
+- [ ] Design tokens (`../assets/design-tokens.json`) mapped into `src/app/globals.css`
+- [x] Tailwind CSS 4 + shadcn/ui + AI Elements
+- [ ] Logo and favicon (`../assets/`) — logo copied to `public/`, favicon still to apply
+- [x] Design system doc (`../docs/design-guidelines.md`)
 
 ### Documentation
-- [ ] PRD (`../docs/PRD.md`)
-- [ ] ADRs (`../docs/ADR/`)
-- [ ] AGENTS.md in `app/` with stack-specific rules
+- [x] PRD (`../docs/PRD.md`)
+- [x] ADRs (`../docs/ADR/`)
+- [x] AGENTS.md in `app/` with stack-specific rules
 
 ## Notes
 
 - Don't create config files manually if the boilerplate provides them — it leads to conflicts.
-- Let the agent research and recommend the right boilerplate based on the ADR decisions.
-- Keep this folder organized: separate routes, components, domain logic, and tests.
+- Keep this folder organized: routes in `src/app`, components in `src/components`, shared code in `src/lib`, server-only code in `src/server`, tests in `tests/`.
