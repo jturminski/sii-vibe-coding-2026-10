@@ -209,7 +209,7 @@ Env is validated with Zod at server start (first import of `server/env`). A miss
 ### D6 — AI Elements for the chat UI
 **Status:** Accepted · **Date:** 2026-10-18
 **Context:** The chat must stream, render markdown (AC-26), show a typing state (AC-29), render a decision-update card and match the brand.
-**Decision:** AI Elements components (`conversation`, `message`, `prompt-input`, `loader`), installed through the AI Elements CLI into `src/components/ai-elements/`. They consume `useChat` messages and parts directly. `MessageResponse` renders streaming markdown.
+**Decision:** AI Elements components (`conversation`, `message`, `prompt-input`) plus the shadcn `spinner`, installed through the shadcn registry (`@ai-elements/*`) into `src/components/ai-elements/`. They consume `useChat` messages and parts directly. `MessageResponse` renders streaming markdown.
 **Rejected alternatives:**
 - assistant-ui: it adds its own runtime (`useChatRuntime`, `AssistantRuntimeProvider`) and thread abstractions (thread list, branching) we don't need, and custom data or tool parts go through its converter layer.
 - Fully custom components: they reimplement auto-scroll, streaming markdown and input handling.

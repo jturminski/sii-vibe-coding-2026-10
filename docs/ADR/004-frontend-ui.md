@@ -17,7 +17,7 @@ This ADR covers the single page, the client state machine, the case form, consum
 | Library | Context7 ID or official docs | Used for |
 |---|---|---|
 | AI SDK UI (`@ai-sdk/react` 4) | `/vercel/ai` | `useChat` (`id`, `messages`, `transport`, `status`, `error`, `regenerate`, `onError`), `DefaultChatTransport` (`api`, `prepareSendMessagesRequest`), `readUIMessageStream` |
-| AI Elements | `/vercel/ai-elements` | `Conversation`/`ConversationContent`/`ConversationScrollButton`, `Message`/`MessageContent`/`MessageResponse`, `PromptInput*`, `Loader` |
+| AI Elements | `/vercel/ai-elements` | `Conversation`/`ConversationContent`/`ConversationScrollButton`, `Message`/`MessageContent`/`MessageResponse`, `PromptInput*`; shadcn `Spinner` for loading states |
 | shadcn/ui | https://ui.shadcn.com/docs | Form primitives, AlertDialog, Badge, Collapsible |
 | react-hook-form + Zod resolver | https://react-hook-form.com | Form state with the shared `caseFormSchema` |
 | file-type (browser) | https://github.com/sindresorhus/file-type | `fileTypeFromBlob` for AC-08 |
@@ -48,7 +48,7 @@ Transitions: `SUBMIT` → submitting. `STAGE` updates the stage. `SUCCESS` → c
 - While submitting, every field and button is disabled (AC-11).
 
 ### Processing indicator
-Shows "Analizujemy zdjęcie…" then "Przygotowujemy decyzję…", driven by real `data-stage` parts. It uses the AI Elements `Loader` and `aria-live="polite"`.
+Shows "Analizujemy zdjęcie…" then "Przygotowujemy decyzję…", driven by real `data-stage` parts. It uses the shadcn `Spinner` and `aria-live="polite"`.
 
 ### Chat screen (`components/case/ChatScreen`)
 - `useChat<HscUIMessage>({ id: caseId, messages: [firstMessage], transport: new DefaultChatTransport({ api: '/api/cases/' + caseId + '/chat', prepareSendMessagesRequest: ({ messages }) => ({ body: { message: last(messages) } }) }) })`. The server holds the history (ADR-000 D3).
@@ -59,7 +59,7 @@ Shows "Analizujemy zdjęcie…" then "Przygotowujemy decyzję…", driven by rea
   - `tool-updateDecision`: `input-streaming`/`input-available` → a small "Aktualizuję decyzję…" row; `output-available` → `DecisionUpdateCard` (title "Zaktualizowana decyzja", status badge, reason, refs, disclaimer, AC-30); `output-error` → nothing (the model's text explains)
   - A timestamp from `metadata.createdAt` under each message.
   - `ConversationScrollButton` for auto-scroll.
-- Typing indicator: when `status` is `submitted` or `streaming`, a `Loader` row is shown at the bottom, and `PromptInputSubmit` receives `status` (disabled while busy, AC-29).
+- Typing indicator: when `status` is `submitted` or `streaming`, a `Spinner` row is shown at the bottom, and `PromptInputSubmit` receives `status` (disabled while busy, AC-29).
 - Input: `PromptInput` + `PromptInputTextarea` (`maxLength` 2000, counter, Enter submits, Shift+Enter adds a newline, whitespace-only blocked, AC-28). Attachments are not enabled (PRD §7).
 - Errors: `useChat` `onError` inspects the response. A 409 `MESSAGE_LIMIT` puts the screen in the limit state. A 404 `CASE_NOT_FOUND` shows "Sesja wygasła. Rozpocznij nowe zgłoszenie." with the New-case button. Anything else marks the last user message with an error icon and a **Ponów** button that calls `regenerate()` (AC-35). Raw error text is never shown (AC-36).
 - Limit state: the client counts user messages in `messages`. At 20, it disables the input and shows the AC-33 text (the server enforces it too).
@@ -204,7 +204,7 @@ sequenceDiagram
 | Stream handling | Unit | Mock fetch with a recorded stream fixture | Stage labels in order, then the chat state | Error chunk → form + banner + draft kept (AC-34) |
 | Message rendering | Unit | Messages with text, `tool-updateDecision` output, `data-case` | Markdown rendered as HTML headings/lists (AC-26), the card with "Zaktualizowana decyzja" (AC-30), `data-case` not shown | – |
 | Panel status | Unit | Initial ACCEPTED, later tool output MANUAL_REVIEW | Badge "Do weryfikacji przez specjalistę" | – |
-| Typing state | Unit | `status=streaming` | Loader visible, submit disabled (AC-29) | – |
+| Typing state | Unit | `status=streaming` | Spinner visible, submit disabled (AC-29) | – |
 | Limit | Unit | 20 user messages | Input disabled + AC-33 text | – |
 | Retry | Unit | `useChat` error | Ponów visible, calls `regenerate` (AC-35) | 404 → session expired message |
 | New case | Unit | Confirm / cancel | Empty form / unchanged chat (AC-38) | – |

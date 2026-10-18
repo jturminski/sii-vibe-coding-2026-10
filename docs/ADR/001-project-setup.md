@@ -36,8 +36,12 @@ The implementing agent runs these steps in order from the repo root. Each step i
    - `--yes` keeps the remaining defaults (Turbopack) and generates `app/AGENTS.md` with up-to-date Next.js guidance for agents.
    - The repo root is already a git repo, so verify afterwards that **no nested `app/.git`** was created (delete it if present).
 3. **Install runtime dependencies (exact versions, `--save-exact`):** `ai@7.0.143`, `@ai-sdk/react@4.0.147`, `@openrouter/ai-sdk-provider@3.1.0`, `zod@4.6.7`, `sharp@0.35.5`, `file-type@22.2.0`, `server-only`. Form: `react-hook-form` + `@hookform/resolvers` (Zod 4 compatible versions current at install time).
-4. **Install AI Elements** (this also initializes shadcn/ui and `components.json`): `npx ai-elements@1.9.1 add conversation message prompt-input loader`. Then add shadcn primitives: `npx shadcn@latest add button alert alert-dialog select radio-group input textarea label badge card collapsible`. Components land in `src/components/ai-elements/` and `src/components/ui/`.
-5. **Install dev dependencies:** `vitest`, `@vitejs/plugin-react`, `vite-tsconfig-paths`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`, `@playwright/test`. Then run `npx playwright install chromium`.
+4. **Initialize shadcn/ui, then add AI Elements through the shadcn registry.** The `ai-elements` CLI (1.9.1) prompts interactively and warns that it will be deprecated at the end of November 2026 in favor of shadcn/ui. Run non-interactively with stdin closed:
+   - `npx shadcn@latest init -t next -b radix -p nova --no-monorepo --css-variables -y`. This creates `components.json` (style `radix-nova`) and `src/lib/utils.ts`. Generated components import `cn` from the shadcn-maintained `cn` package.
+   - `npx shadcn@latest add @ai-elements/conversation @ai-elements/message @ai-elements/prompt-input -y`. `@ai-elements/loader` no longer exists in the registry, so use the shadcn `spinner` (installed as a dependency) for loading states.
+   - `npx shadcn@latest add alert alert-dialog radio-group label badge card collapsible -y`. `button`, `select`, `input`, `textarea`, `dialog` and `tooltip` come in with AI Elements.
+   - Move `shadcn` to `devDependencies` (the CLI adds it as a runtime dependency).
+5. **Install dev dependencies:** `@types/node@^24` (the scaffold's `^20` conflicts with Vitest 5's peer range), `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom` and `@playwright/test`. Then run `npx playwright install chromium`. Do **not** add `@vitejs/plugin-react` (an unresolvable Babel 8 peer conflict with the shadcn CLI) or `vite-tsconfig-paths` (`resolve.tsconfigPaths: true` is built in). Vitest's default transform handles TSX with the automatic JSX runtime. Alias `server-only` to an empty stub in the Vitest configs, because the real package throws outside the `react-server` condition.
 6. **Harden TypeScript:** in `tsconfig.json` keep `strict: true` (scaffold default) and add `noUncheckedIndexedAccess: true`, `noImplicitOverride: true`, `noFallthroughCasesInSwitch: true` and `forceConsistentCasingInFileNames: true`. Generated AI Elements/shadcn files must compile under these flags. Fix them in place if not, because they are owned code.
 7. **Configure Next.js:** `next.config.ts` with `serverExternalPackages: ['sharp']` (native module) and `typedRoutes: true`. No `proxy`/middleware (it would add a body-size limit to uploads).
 8. **Create env files:** `app/.env.example` listing the ADR-000 §7 variables, and `app/.env.local` (git-ignored) copied from the root `.env` values. Add `server/env.ts` with Zod validation.
@@ -116,7 +120,7 @@ flowchart TD
   B --> C{nested app/.git?}
   C -- yes --> C1[remove it] --> D
   C -- no --> D[npm i runtime deps --save-exact]
-  D --> E[ai-elements add conversation message prompt-input loader]
+  D --> E[shadcn init radix/nova + add @ai-elements/conversation, message, prompt-input]
   E --> F[shadcn add primitives]
   F --> G[dev deps + playwright install chromium]
   G --> H[tsconfig hardening + next.config]
