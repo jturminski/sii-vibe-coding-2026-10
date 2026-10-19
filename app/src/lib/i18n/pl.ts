@@ -56,6 +56,7 @@ export const pl = {
     updatedDecisionTitle: "Zaktualizowana decyzja",
     updatingDecision: "Aktualizuję decyzję…",
     newCase: "Nowe zgłoszenie",
+    conversationLabel: "Rozmowa",
   },
   panel: {
     caseId: "Numer sprawy",
@@ -67,6 +68,12 @@ export const pl = {
     showMore: "Pokaż więcej",
     showLess: "Pokaż mniej",
     status: "Status",
+    title: "Podsumowanie zgłoszenia",
+    photo: "Zdjęcie",
+    openPhoto: "Powiększ zdjęcie",
+    photoAlt: "Zdjęcie zgłoszonego urządzenia",
+    photoDialogTitle: "Zdjęcie zgłoszenia",
+    close: "Zamknij",
   },
   dialog: {
     newCaseMessage: "Bieżąca rozmowa zostanie zamknięta. Kontynuować?",

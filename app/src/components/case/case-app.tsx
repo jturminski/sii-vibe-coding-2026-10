@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer } from "react";
 import { CaseForm } from "@/components/case/case-form";
+import { ChatScreen } from "@/components/case/chat-screen";
 import { ProcessingIndicator } from "@/components/case/processing-indicator";
 import { ProcessingFailed, submitCase, type SubmissionFieldErrors } from "@/components/case/submit-case";
 import { pl } from "@/lib/i18n/pl";
@@ -91,10 +92,15 @@ export function CaseApp() {
   }
 
   if (state.status === "chat") {
-    // Temporary: T4.3 replaces this with ChatScreen.
+    // data-testid kept for the existing CaseApp tests (they still query "chat-placeholder").
     return (
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-8 sm:px-6">
-        <div data-testid="chat-placeholder" />
+      <main data-testid="chat-placeholder" className="flex w-full flex-1 flex-col">
+        <ChatScreen
+          caseId={state.caseId}
+          caseData={state.caseData}
+          firstMessage={state.firstMessage}
+          imagePreviewUrl={state.imagePreviewUrl}
+        />
       </main>
     );
   }

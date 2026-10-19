@@ -95,7 +95,17 @@ describe("pl strings", () => {
       showMore: "Pokaż więcej",
       showLess: "Pokaż mniej",
       status: "Status",
+      title: "Podsumowanie zgłoszenia",
+      photo: "Zdjęcie",
+      openPhoto: "Powiększ zdjęcie",
+      photoAlt: "Zdjęcie zgłoszonego urządzenia",
+      photoDialogTitle: "Zdjęcie zgłoszenia",
+      close: "Zamknij",
     });
+  });
+
+  it("has the conversation label (PRD §9.2)", () => {
+    expect(pl.chat.conversationLabel).toBe("Rozmowa");
   });
 
   it("has the first-message parts and the mandatory disclaimer (AC-24, §11.6, §11.8)", () => {
