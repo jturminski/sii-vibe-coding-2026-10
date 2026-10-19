@@ -1,6 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ChatScreen } from "@/components/case/chat-screen";
 import { DECISION_STATUSES } from "@/lib/domain";
 import { pl } from "@/lib/i18n/pl";
@@ -15,7 +15,10 @@ beforeAll(() => {
   };
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const caseData: CaseDataPart = {
   caseId: "HSC-20261019-A1B2",
@@ -127,5 +130,26 @@ describe("ChatScreen (PRD §9.2, ADR-004 §3)", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(badge()).toHaveTextContent(DECISION_STATUSES.ACCEPTED);
     expect(screen.getByText(caseData.caseId)).toBeInTheDocument();
+  });
+
+  it("offers Nowe zgłoszenie when the session expired (404 CASE_NOT_FOUND)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "CASE_NOT_FOUND" }, { status: 404 })));
+    const onNewCase = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        caseId={caseData.caseId}
+        caseData={caseData}
+        firstMessage={firstMessage}
+        imagePreviewUrl="blob:preview"
+        onNewCase={onNewCase}
+      />,
+    );
+
+    await user.type(screen.getByRole("textbox", { name: pl.chat.inputLabel }), "Halo?{Enter}");
+    const notice = (await screen.findByText(pl.errors.sessionExpired)).parentElement!;
+    await user.click(within(notice).getByRole("button", { name: pl.chat.newCase }));
+
+    expect(onNewCase).toHaveBeenCalledTimes(1);
   });
 });

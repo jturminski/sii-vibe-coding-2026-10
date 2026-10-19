@@ -26,6 +26,8 @@ type ChatScreenProps = {
   caseData: CaseDataPart;
   firstMessage: HscUIMessage;
   imagePreviewUrl: string;
+  /** Starts a new case without confirmation; offered when the session expired (the case is gone). */
+  onNewCase?: () => void;
 };
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -83,7 +85,7 @@ function createTransport(caseId: string) {
 }
 
 /** Chat screen (PRD §9.2, ADR-004 §3): summary panel, conversation and the message input. */
-export function ChatScreen({ caseId, caseData, firstMessage, imagePreviewUrl }: ChatScreenProps) {
+export function ChatScreen({ caseId, caseData, firstMessage, imagePreviewUrl, onNewCase }: ChatScreenProps) {
   const isDesktop = useIsDesktop();
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [transport] = useState(() => createTransport(caseId));
@@ -170,9 +172,14 @@ export function ChatScreen({ caseId, caseData, firstMessage, imagePreviewUrl }: 
         </Conversation>
 
         {inputLocked ? (
-          <p className="rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground">
-            {sessionExpired ? pl.errors.sessionExpired : pl.chat.limitReached}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground">
+            <p>{sessionExpired ? pl.errors.sessionExpired : pl.chat.limitReached}</p>
+            {sessionExpired && onNewCase ? (
+              <Button type="button" size="sm" onClick={onNewCase}>
+                {pl.chat.newCase}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         <ChatInput status={status} disabled={inputLocked} onSend={handleSend} />
       </div>
