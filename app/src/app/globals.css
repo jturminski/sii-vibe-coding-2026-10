@@ -102,9 +102,12 @@
    */
   --success: #2e8b57;
   --success-foreground: #ffffff;
-  /* border-1 for cards and dividers, border-2 for form fields. */
+  /*
+   * border-1 (ink-200) for cards and dividers. Form fields use ink-400: 3.45:1 on white,
+   * the lightest Code10 grey meeting WCAG 1.4.11 (3:1); ink-300 #b8b8b8 was 1.98:1.
+   */
   --border: #d6d6d6;
-  --input: #b8b8b8;
+  --input: #8a8a8a;
   /* Focus ring: 2px amber (skill: Focus ring). */
   --ring: #ffb702;
   --chart-1: #ffb702;

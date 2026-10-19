@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ChatStatus } from "ai";
 import { SendHorizontalIcon } from "lucide-react";
 import {
@@ -26,6 +26,7 @@ type ChatInputProps = {
  */
 export function ChatInput({ status, disabled = false, onSend }: ChatInputProps) {
   const [text, setText] = useState("");
+  const counterId = useId();
   const busy = status === "submitted" || status === "streaming";
   const canSend = !disabled && !busy && text.trim().length > 0;
 
@@ -45,6 +46,7 @@ export function ChatInput({ status, disabled = false, onSend }: ChatInputProps) 
     >
       <PromptInputTextarea
         aria-label={pl.chat.inputLabel}
+        aria-describedby={counterId}
         placeholder={pl.chat.inputPlaceholder}
         maxLength={LIMITS.CHAT_MESSAGE_MAX}
         disabled={disabled}
@@ -53,9 +55,11 @@ export function ChatInput({ status, disabled = false, onSend }: ChatInputProps) 
         className="text-base"
       />
       <PromptInputFooter>
-        <output aria-label={pl.chat.charCount} className="px-1 text-xs text-muted-foreground tabular-nums">
-          {text.length}/{LIMITS.CHAT_MESSAGE_MAX}
-        </output>
+        {/* Read with the field via aria-describedby; a live region would announce every keystroke. */}
+        <span id={counterId} className="px-1 text-xs text-muted-foreground tabular-nums">
+          <span className="sr-only">{`${pl.chat.charCount}: `}</span>
+          {`${text.length}/${LIMITS.CHAT_MESSAGE_MAX}`}
+        </span>
         <PromptInputSubmit status={status} aria-label={pl.chat.send} disabled={!canSend}>
           <SendHorizontalIcon aria-hidden="true" className="size-4" />
         </PromptInputSubmit>

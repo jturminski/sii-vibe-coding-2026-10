@@ -195,6 +195,7 @@ export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, o
           render={({ field }) => (
             <RadioGroup
               aria-labelledby={caseTypeIds.field}
+              aria-required
               aria-invalid={caseTypeError ? true : undefined}
               aria-describedby={describedBy(caseTypeError, caseTypeIds.error)}
               value={field.value ?? ""}
@@ -244,6 +245,7 @@ export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, o
                 id={categoryIds.field}
                 ref={field.ref}
                 onBlur={field.onBlur}
+                aria-required
                 aria-invalid={categoryError ? true : undefined}
                 aria-describedby={describedBy(categoryError, categoryIds.error)}
                 className="w-full"
@@ -275,6 +277,7 @@ export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, o
           placeholder={pl.form.modelPlaceholder}
           maxLength={LIMITS.MODEL_NAME_MAX}
           disabled={disabled}
+          aria-required
           aria-invalid={modelError ? true : undefined}
           aria-describedby={describedBy(modelError, modelIds.error)}
           {...register("modelName")}
@@ -293,6 +296,7 @@ export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, o
           type="date"
           max={today}
           disabled={disabled}
+          aria-required
           aria-invalid={dateError ? true : undefined}
           aria-describedby={describedBy(dateError, dateIds.error)}
           className="w-full sm:w-56"
@@ -312,13 +316,15 @@ export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, o
           rows={5}
           maxLength={LIMITS.REASON_MAX}
           disabled={disabled}
+          aria-required={caseType === "COMPLAINT" ? true : undefined}
           aria-invalid={reasonError ? true : undefined}
           aria-describedby={[reasonError ? reasonIds.error : null, counterId].filter(Boolean).join(" ")}
           {...register("reason")}
         />
         <div className="flex items-start justify-between gap-4">
           <FieldMessage id={reasonIds.error}>{reasonError}</FieldMessage>
-          <span id={counterId} aria-live="polite" className="ml-auto text-sm text-muted-foreground tabular-nums">
+          {/* Read with the field via aria-describedby; a live region would announce every keystroke. */}
+          <span id={counterId} className="ml-auto text-sm text-muted-foreground tabular-nums">
             {`${reasonLength}/${LIMITS.REASON_MAX}`}
           </span>
         </div>
@@ -340,6 +346,7 @@ export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, o
                 id={imageIds.field}
                 value={field.value ?? null}
                 disabled={disabled}
+                required
                 hint={caseType ? pl.form.photoHint[caseType] : undefined}
                 error={imageError}
                 onChange={(file, code) => {

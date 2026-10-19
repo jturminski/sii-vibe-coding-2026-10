@@ -62,6 +62,9 @@ export const pl = {
     typing: "Asystent pisze odpowiedź…",
     decisionReason: "Powód zmiany",
     decisionRules: "Podstawa w regulaminie",
+    /** Stored and shown on the card when the server caps an ACCEPTED request at MANUAL_REVIEW (AC-31, AC-31a). */
+    downgradeReason:
+      "Status zgłoszenia to „Do weryfikacji przez specjalistę”. Na podstawie zdjęcia nie można potwierdzić zgłoszonej usterki ani stanu urządzenia, a same informacje z rozmowy nie wystarczą do przyjęcia zgłoszenia. Sprawę oceni specjalista sklepu po fizycznym sprawdzeniu urządzenia.",
   },
   panel: {
     caseId: "Numer sprawy",

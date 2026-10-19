@@ -116,6 +116,12 @@ describe("pl strings", () => {
     expect(pl.chat.decisionRules).toBe("Podstawa w regulaminie");
   });
 
+  it("has the chat downgrade reason stored when ACCEPTED is capped at MANUAL_REVIEW (AC-31, AC-31a)", () => {
+    expect(pl.chat.downgradeReason).toBe(
+      "Status zgłoszenia to „Do weryfikacji przez specjalistę”. Na podstawie zdjęcia nie można potwierdzić zgłoszonej usterki ani stanu urządzenia, a same informacje z rozmowy nie wystarczą do przyjęcia zgłoszenia. Sprawę oceni specjalista sklepu po fizycznym sprawdzeniu urządzenia.",
+    );
+  });
+
   it("has the first-message parts and the mandatory disclaimer (AC-24, §11.6, §11.8)", () => {
     expect(pl.firstMessage.greeting).toBe("Dzień dobry!");
     expect(pl.firstMessage.headings).toEqual({
