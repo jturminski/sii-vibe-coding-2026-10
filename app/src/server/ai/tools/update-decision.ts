@@ -44,7 +44,9 @@ export function maxAllowedChatStatus({ imageReport, initialDecision }: Pick<Case
 
 /**
  * `updateDecision` tool bound to one case (ADR-003 §3, A3). `execute` records the change in the store
- * (statusHistory, currentStatus, needsInfoRounds) and returns the card payload (§4.6). It records the model's
+ * (statusHistory, currentStatus, needsInfoRounds) and returns the card payload (§4.6). needsInfoRounds is +1 for
+ * NEEDS_INFO and 0 for any other status; a turn that keeps NEEDS_INFO without a tool call is counted by the chat
+ * route instead (AC-32). It records the model's
  * decision as sent, except for one guard (defence in depth for AC-31/AC-31a): an ACCEPTED request that
  * `maxAllowedChatStatus` does not allow is stored and returned as MANUAL_REVIEW with the initial decision's
  * appliedRules (real policy references for this case) instead of the model's acceptance rules.

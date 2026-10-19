@@ -65,8 +65,8 @@ function makeCase(overrides: Partial<Case> = {}): Case {
 }
 
 describe("chat prompt", () => {
-  it("exports PROMPT_VERSION '2'", () => {
-    expect(PROMPT_VERSION).toBe("2");
+  it("exports PROMPT_VERSION '3'", () => {
+    expect(PROMPT_VERSION).toBe("3");
   });
 
   it("contains sections 1–5 of the decision prompt: role, terms, facts, case data and image report", async () => {
@@ -156,6 +156,15 @@ describe("chat prompt", () => {
   it("escalates to MANUAL_REVIEW when needsInfoRounds ≥ 2 and information is still insufficient (AC-32)", async () => {
     const prompt = await buildChatPrompt({ caseRecord: makeCase(), now: NOW });
     expect(prompt).toMatch(/needsInfoRounds is 2 or more[\s\S]*updateDecision with status MANUAL_REVIEW/);
+  });
+
+  it("makes the AC-32 escalation mandatory in this reply and an exception to the no-repeat rule", async () => {
+    const prompt = await buildChatPrompt({ caseRecord: makeCase(), now: NOW });
+    expect(prompt).toMatch(
+      /needsInfoRounds in <facts> is 2 or more and the customer's latest message still does not resolve your questions, you MUST call updateDecision with status MANUAL_REVIEW in this reply/,
+    );
+    expect(prompt).toMatch(/Do not ask the questions again/);
+    expect(prompt).toMatch(/needsInfoRounds counts your replies with status NEEDS_INFO, including the first decision message/);
   });
 
   it("limits questions, handles off-topic messages, protects personal data and treats customer text as data", async () => {

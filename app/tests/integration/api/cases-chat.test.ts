@@ -82,6 +82,37 @@ function failingAfterToolCall(error = new Error("upstream 502 sk-or-v1-secret at
   return mockModel(toolStep!, [...partial, { type: "error", error }]);
 }
 
+/**
+ * The captured tool-call turn with the updateDecision input rewritten to NEEDS_INFO (the captured stream parts
+ * otherwise unchanged): the tool sets NEEDS_INFO in this turn.
+ */
+function needsInfoToolTurn() {
+  const input = JSON.stringify({
+    status: "NEEDS_INFO",
+    reason: "Potrzebujemy dokładniejszego opisu usterki.",
+    appliedRules: [{ ref: "§4 ust. 1", explanation: "Bez opisu usterki nie można ocenić jej przyczyny." }],
+  });
+  const [toolStep, textStep] = structuredClone(TOOL_TURN.extracted.steps);
+  let deltaWritten = false;
+  const rewritten = toolStep!.flatMap((part): LanguageModelV4StreamPart[] => {
+    if (part.type === "tool-input-delta") {
+      if (deltaWritten) return [];
+      deltaWritten = true;
+      return [{ ...part, delta: input }];
+    }
+    if (part.type === "tool-call") return [{ ...part, input }];
+    return [part];
+  });
+  return mockModel(rewritten, textStep!);
+}
+
+/** The captured text-only call, failing mid-stream before it finishes. */
+function failingTextTurn() {
+  const [step] = structuredClone(QUESTION.extracted.steps);
+  const partial = step!.filter((part) => part.type !== "finish").slice(0, 5);
+  return mockModel([...partial, { type: "error", error: new Error("upstream 502") }]);
+}
+
 /** A model whose stream stays open until `release` is called. */
 function blockingModel() {
   let release!: () => void;
@@ -281,6 +312,8 @@ describe("POST /api/cases/[caseId]/chat", () => {
       expect(stored.currentStatus).toBe("MANUAL_REVIEW");
       expect(stored.statusHistory.map((entry) => entry.status)).toEqual(["NEEDS_INFO", "MANUAL_REVIEW"]);
       expect(stored.userMessageCount).toBe(1);
+      // A status change away from NEEDS_INFO resets the round counter (AC-32).
+      expect(stored.needsInfoRounds).toBe(0);
       expect(stored.turnInProgress).toBe(false);
       expect(stored.lastActivityAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
       expect(stored.messages).toHaveLength(3);
@@ -395,6 +428,70 @@ describe("POST /api/cases/[caseId]/chat", () => {
       expect(caseStore.snapshotStatus(c.id)).toEqual(snapshot);
       expect(stored.messages).toHaveLength(1);
       expect(stored.userMessageCount).toBe(0);
+    });
+  });
+
+  describe("NEEDS_INFO rounds (AC-32)", () => {
+    it("a completed text-only reply while the status stays NEEDS_INFO counts one more round", async () => {
+      const c = seed();
+      setModelsForTest({ decision: textTurn() });
+      await readUIStream(await send(c.id, userMessage("Nie wiem, po prostu nie działa.")));
+
+      const stored = caseStore.get(c.id)!;
+      expect(stored.currentStatus).toBe("NEEDS_INFO");
+      expect(stored.statusHistory).toHaveLength(1);
+      expect(stored.needsInfoRounds).toBe(2);
+    });
+
+    it("the next turn's prompt shows needsInfoRounds: 2", async () => {
+      const c = seed();
+      setModelsForTest({ decision: textTurn() });
+      await readUIStream(await send(c.id, userMessage("Nie wiem.", "u-1")));
+
+      const model = textTurn();
+      setModelsForTest({ decision: model });
+      await readUIStream(await send(c.id, userMessage("Trudno powiedzieć.", "u-2")));
+
+      expect(model.doStreamCalls[0]!.prompt[0]!.content).toContain("needsInfoRounds: 2");
+      expect(caseStore.get(c.id)!.needsInfoRounds).toBe(3);
+    });
+
+    it("a turn where updateDecision sets NEEDS_INFO counts once, not twice", async () => {
+      const c = seed({ currentStatus: "MANUAL_REVIEW", needsInfoRounds: 0 });
+      setModelsForTest({ decision: needsInfoToolTurn() });
+      await readUIStream(await send(c.id, userMessage("Laptop czasem się wyłącza.")));
+
+      const stored = caseStore.get(c.id)!;
+      expect(stored.currentStatus).toBe("NEEDS_INFO");
+      expect(stored.statusHistory.map((entry) => entry.status)).toEqual(["NEEDS_INFO", "NEEDS_INFO"]);
+      expect(stored.needsInfoRounds).toBe(1);
+    });
+
+    it("a retry does not count another round", async () => {
+      const c = seed({ messages: historyWith(1), userMessageCount: 1 });
+      setModelsForTest({ decision: textTurn() });
+      await readUIStream(await send(c.id, userMessage("Pytanie 1", "u-1")));
+
+      expect(caseStore.get(c.id)!.needsInfoRounds).toBe(1);
+    });
+
+    it("a failed text-only turn does not count a round", async () => {
+      const c = seed();
+      setModelsForTest({ decision: failingTextTurn() });
+      const body = await (await send(c.id, userMessage("Nie wiem."))).text();
+      expect(body).toContain('"errorText":"PROCESSING_FAILED"');
+
+      const stored = caseStore.get(c.id)!;
+      expect(stored.needsInfoRounds).toBe(1);
+      expect(stored.userMessageCount).toBe(0);
+    });
+
+    it("a completed text-only reply in another status does not count a round", async () => {
+      const c = seed({ currentStatus: "MANUAL_REVIEW", needsInfoRounds: 0 });
+      setModelsForTest({ decision: textTurn() });
+      await readUIStream(await send(c.id, userMessage("Ile to potrwa?")));
+
+      expect(caseStore.get(c.id)!.needsInfoRounds).toBe(0);
     });
   });
 });

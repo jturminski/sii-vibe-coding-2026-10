@@ -123,7 +123,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         const { messages } = turnEnd;
         caseStore.update(caseId, (c) => {
           c.messages = messages;
-          if (!isRetry) c.userMessageCount += 1;
+          if (isRetry) return;
+          c.userMessageCount += 1;
+          // AC-32 round count: every completed new turn whose reply leaves the case in NEEDS_INFO is one more
+          // round, also when the model only asked again in text (it may not call updateDecision to repeat a
+          // status). A turn where updateDecision changed the status was already counted by the tool
+          // (NEEDS_INFO → +1, other status → 0), so it is not counted again here.
+          const statusChangedThisTurn = c.statusHistory.length !== snapshot.statusHistory.length;
+          if (!statusChangedThisTurn && c.currentStatus === "NEEDS_INFO") c.needsInfoRounds += 1;
         });
       } else {
         caseStore.restoreStatus(caseId, snapshot);

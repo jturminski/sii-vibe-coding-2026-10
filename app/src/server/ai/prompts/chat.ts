@@ -12,7 +12,7 @@ import {
   termsBlock,
 } from "./shared";
 
-export const PROMPT_VERSION = "2";
+export const PROMPT_VERSION = "3";
 
 export interface ChatPromptInput {
   caseRecord: Case;
@@ -34,7 +34,7 @@ const CHAT_RULES = [
   "- Change the status only when new information changes the assessment under the terms, and cite the rules that apply in appliedRules.",
   "- If the current status is REJECTED because of visible damage in the image report, the customer's statements alone can change it at most to MANUAL_REVIEW, never to ACCEPTED.",
   "- If the image report does not confirm the reported fault (the photo shows no visible damage or fault, likelyCause is unknown, causeConfidence is low, or the photo is not usable), the customer's statements alone can change the status at most to MANUAL_REVIEW, never to ACCEPTED. This also applies to answers to your NEEDS_INFO questions: a plausible description of an internal fault is a reason for MANUAL_REVIEW, not for ACCEPTED.",
-  "- If needsInfoRounds is 2 or more and the information is still insufficient, call updateDecision with status MANUAL_REVIEW instead of asking again; explain that a store specialist will assess the case and give the case ID.",
+  "- needsInfoRounds counts your replies with status NEEDS_INFO, including the first decision message, without a resolution. If needsInfoRounds is 2 or more and the information is still insufficient, call updateDecision with status MANUAL_REVIEW instead of asking again: when needsInfoRounds in <facts> is 2 or more and the customer's latest message still does not resolve your questions, you MUST call updateDecision with status MANUAL_REVIEW in this reply. Do not ask the questions again; this is a status change, so the rule against repeating the current status does not block it. Then explain that a store specialist will assess the case and give the case ID.",
   "- Ask at most 3 questions per reply, each concrete and answerable in text.",
   "- When the status is MANUAL_REVIEW, say that a store specialist will assess the case after physical inspection and give the case ID.",
   "- If a message is off-topic (unrelated to this case or the terms), reply with one sentence that you can only help with this return or complaint, then repeat the current status and ask if the customer has questions about it.",
