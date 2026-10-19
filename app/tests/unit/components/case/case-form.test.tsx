@@ -290,6 +290,34 @@ describe("CaseForm (PRD AC-01–07, AC-11, §9.1)", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(pl.errors.processingBanner);
   });
 
+  describe("server field errors (ADR-002 §4 400 body)", () => {
+    it("shows each code under its field and focuses the first invalid field in §9.1 order", async () => {
+      const file = imageFile();
+      setup({
+        defaultValues: { caseType: "RETURN", modelName: "Dell XPS 13", image: file },
+        serverErrors: { image: "UNSUPPORTED_FORMAT", modelName: "TOO_LONG" },
+      });
+
+      const model = screen.getByRole("textbox", { name: pl.form.labels.modelName });
+      await waitFor(() => expect(describedText(model)).toContain(pl.validation.TOO_LONG));
+      expect(describedText(byLabel(pl.form.labels.photo))).toContain(pl.validation.UNSUPPORTED_FORMAT);
+      expect(model).toHaveAttribute("aria-invalid", "true");
+      expect(model).toHaveFocus();
+      expect(model).toHaveValue("Dell XPS 13");
+      expect(screen.getByText(file.name)).toBeInTheDocument();
+    });
+
+    it("applies new server errors passed after mount", async () => {
+      const { rerender, onSubmit } = setup();
+      rerender(<CaseForm disabled={false} onSubmit={onSubmit} serverErrors={{ purchaseDate: "FUTURE_DATE" }} />);
+
+      await waitFor(() =>
+        expect(describedText(byLabel(pl.form.labels.purchaseDate))).toContain(pl.validation.FUTURE_DATE),
+      );
+      expect(byLabel(pl.form.labels.purchaseDate)).toHaveFocus();
+    });
+  });
+
   it("prefills defaultValues", () => {
     setup({ defaultValues: { caseType: "RETURN", modelName: "iPad Air" } });
     expect(screen.getByRole("radio", { name: "Zwrot" })).toBeChecked();

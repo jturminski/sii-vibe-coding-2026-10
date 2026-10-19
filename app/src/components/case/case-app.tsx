@@ -3,12 +3,7 @@
 import { useEffect, useReducer } from "react";
 import { CaseForm } from "@/components/case/case-form";
 import { ProcessingIndicator } from "@/components/case/processing-indicator";
-import {
-  ProcessingFailed,
-  submitCase,
-  type SubmissionField,
-  type SubmissionFieldErrors,
-} from "@/components/case/submit-case";
+import { ProcessingFailed, submitCase, type SubmissionFieldErrors } from "@/components/case/submit-case";
 import { pl } from "@/lib/i18n/pl";
 import type { CaseDataPart, CaseForm as CaseFormValues, HscUIMessage, StageDataPart } from "@/lib/schemas";
 
@@ -18,7 +13,7 @@ export type CaseDraft = { values: CaseFormValues; file: File };
 type Stage = StageDataPart["stage"];
 
 export type CaseAppState =
-  | { status: "form"; draft?: CaseDraft; bannerError?: string }
+  | { status: "form"; draft?: CaseDraft; bannerError?: string; serverErrors?: SubmissionFieldErrors }
   | { status: "submitting"; draft: CaseDraft; stage: Stage }
   | {
       status: "chat";
@@ -38,7 +33,8 @@ export type CaseAppAction =
       firstMessage: HscUIMessage;
       imagePreviewUrl: string;
     }
-  | { type: "FAIL"; bannerError: string }
+  /** Back to the form: a processing failure sets the banner, a 400 sets the inline field codes. */
+  | { type: "FAIL"; bannerError?: string; serverErrors?: SubmissionFieldErrors }
   | { type: "NEW_CASE" };
 
 /** ADR-004 §7 state machine: form → submitting → chat, FAIL back to form with the draft, NEW_CASE resets. */
@@ -55,24 +51,11 @@ export function caseAppReducer(state: CaseAppState, action: CaseAppAction): Case
     }
     case "FAIL":
       return state.status === "submitting"
-        ? { status: "form", draft: state.draft, bannerError: action.bannerError }
+        ? { status: "form", draft: state.draft, bannerError: action.bannerError, serverErrors: action.serverErrors }
         : state;
     case "NEW_CASE":
       return { status: "form" };
   }
-}
-
-function fieldLabel(field: SubmissionField, values: CaseFormValues): string {
-  if (field === "image") return pl.form.labels.photo;
-  if (field === "reason") return pl.form.reasonLabel[values.caseType];
-  return pl.form.labels[field];
-}
-
-/** Server-side field errors (400) as one banner text; CaseForm only renders its own validation inline. */
-function describeFieldErrors(fields: SubmissionFieldErrors, values: CaseFormValues): string {
-  return (Object.entries(fields) as [SubmissionField, keyof typeof pl.validation][])
-    .map(([field, code]) => `${fieldLabel(field, values)}: ${pl.validation[code]}`)
-    .join(" · ");
 }
 
 /** The single page: case form, processing, then chat (ADR-004 §3, F3). */
@@ -91,7 +74,7 @@ export function CaseApp() {
     try {
       const result = await submitCase(values, file, { onStage: (stage) => dispatch({ type: "STAGE", stage }) });
       if (result.kind === "validation") {
-        dispatch({ type: "FAIL", bannerError: describeFieldErrors(result.fields, values) });
+        dispatch({ type: "FAIL", serverErrors: result.fields });
         return;
       }
       dispatch({
@@ -126,6 +109,7 @@ export function CaseApp() {
         defaultValues={draft ? { ...draft.values, image: draft.file } : undefined}
         disabled={submitting}
         bannerError={state.status === "form" ? state.bannerError : undefined}
+        serverErrors={state.status === "form" ? state.serverErrors : undefined}
         onSubmit={handleSubmit}
       />
       {submitting ? <ProcessingIndicator stage={state.stage} /> : null}

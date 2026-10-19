@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Controller, useForm, useWatch, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,6 +41,21 @@ type FormOutput = z.output<ReturnType<typeof createFormSchema>>;
 /** Field order of PRD §9.1, used to focus the first invalid field on submit. */
 const FIELD_ORDER = ["caseType", "category", "modelName", "purchaseDate", "reason", "image"] as const;
 
+export type CaseFormFieldName = (typeof FIELD_ORDER)[number];
+
+/** Field codes from a 400 validation body (ADR-002 §4), shown inline like client errors. */
+export type CaseFormServerErrors = Partial<Record<CaseFormFieldName, ErrorCode>>;
+
+// "Today" depends on the clock, so it is read only on the client: the server snapshot is empty,
+// which keeps the page prerenderable with Cache Components (the date `max` appears after hydration).
+const noSubscription = () => () => {};
+const readToday = () => todayInWarsaw(new Date());
+const noToday = () => undefined;
+
+/** Validates against a schema built at submit time, so "today" is never read during render. */
+const resolver = (...args: Parameters<ReturnType<typeof zodResolver<FormInput, unknown, FormOutput>>>) =>
+  zodResolver(createFormSchema(new Date()))(...args);
+
 export type CaseFormDefaultValues = Partial<CaseFormInput> & { image?: File | null };
 
 export type CaseFormProps = {
@@ -49,6 +64,8 @@ export type CaseFormProps = {
   disabled: boolean;
   /** Already translated processing error shown at the top of the form (AC-34). */
   bannerError?: string;
+  /** Server-side field codes (400); each new object is applied and focuses the first invalid field. */
+  serverErrors?: CaseFormServerErrors;
   onSubmit: (values: CaseFormValues, file: File) => void;
 };
 
@@ -79,21 +96,21 @@ function FieldMessage({ id, children }: { id: string; children?: ReactNode }) {
 }
 
 /** Return/complaint form (PRD §9.1, AC-01–07, AC-11; ADR-004 "Case form"). */
-export function CaseForm({ defaultValues, disabled, bannerError, onSubmit }: CaseFormProps) {
+export function CaseForm({ defaultValues, disabled, bannerError, serverErrors, onSubmit }: CaseFormProps) {
   const baseId = useId();
   const ids = (name: string) => ({ field: `${baseId}-${name}`, error: `${baseId}-${name}-error` });
-  const today = useMemo(() => todayInWarsaw(new Date()), []);
-  const schema = useMemo(() => createFormSchema(new Date()), []);
+  const today = useSyncExternalStore(noSubscription, readToday, noToday);
 
   const {
     control,
     register,
     handleSubmit,
     clearErrors,
+    setError,
     setFocus,
     formState: { errors },
   } = useForm<FormInput, unknown, FormOutput>({
-    resolver: zodResolver(schema),
+    resolver,
     mode: "onSubmit",
     reValidateMode: "onChange",
     // RHF focuses in registration order, which differs from the visual order; see `submit`.
@@ -121,6 +138,16 @@ export function CaseForm({ defaultValues, disabled, bannerError, onSubmit }: Cas
     const first = FIELD_ORDER.find(isInvalid);
     if (first) setFocus(first);
   };
+
+  useEffect(() => {
+    if (!serverErrors) return;
+    for (const name of FIELD_ORDER) {
+      const code = serverErrors[name];
+      if (code) setError(name, { type: "server", message: code });
+    }
+    const first = FIELD_ORDER.find((name) => serverErrors[name]);
+    if (first) setFocus(first);
+  }, [serverErrors, setError, setFocus]);
 
   const submit = handleSubmit(
     ({ image, ...values }) => {

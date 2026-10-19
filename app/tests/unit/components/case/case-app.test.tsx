@@ -89,6 +89,12 @@ afterEach(() => {
 });
 
 const submitButton = () => screen.getByRole("button", { name: pl.form.submit });
+/** Error text linked to a control through aria-describedby. */
+function describedText(element: HTMLElement): string {
+  const ids = element.getAttribute("aria-describedby")?.split(/\s+/) ?? [];
+  return ids.map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
+}
+
 const modelField = () => screen.getByRole("textbox", { name: pl.form.labels.modelName });
 
 async function fillValid(user: ReturnType<typeof userEvent.setup>, container: HTMLElement, file: File) {
@@ -185,16 +191,23 @@ describe("CaseApp (ADR-004 §3 page and state machine, AC-11, AC-34)", () => {
     expect(modelField()).toHaveValue("Dell XPS 13");
   });
 
-  it("maps a 400 body to the field error texts and keeps the values", async () => {
-    mockFetch(() => Response.json({ error: "VALIDATION", fields: { image: "UNSUPPORTED_FORMAT" } }, { status: 400 }));
+  it("maps a 400 body to inline field errors and keeps the values and the file", async () => {
+    mockFetch(() =>
+      Response.json(
+        { error: "VALIDATION", fields: { modelName: "TOO_LONG", image: "UNSUPPORTED_FORMAT" } },
+        { status: 400 },
+      ),
+    );
     const { user, container } = setup();
     const file = imageFile();
     await fillValid(user, container, file);
 
     await user.click(submitButton());
 
-    const message = await screen.findByText(new RegExp(pl.validation.UNSUPPORTED_FORMAT));
-    expect(message).toHaveTextContent(pl.form.labels.photo);
+    await waitFor(() => expect(describedText(modelField())).toContain(pl.validation.TOO_LONG));
+    expect(describedText(screen.getByLabelText(new RegExp(`^${pl.form.labels.photo}`)))).toContain(
+      pl.validation.UNSUPPORTED_FORMAT,
+    );
     expect(screen.queryByText(pl.errors.processingBanner)).not.toBeInTheDocument();
     expect(submitButton()).toBeEnabled();
     expect(modelField()).toHaveValue("Dell XPS 13");
