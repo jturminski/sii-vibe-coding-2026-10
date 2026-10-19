@@ -61,6 +61,32 @@ describe("createCaseStore", () => {
     expect(created.id).toBe(seenId);
   });
 
+  it("create stores the case under a preset ID and passes it to the builder", () => {
+    let seenId = "";
+    const created = store.create(
+      (id) => {
+        seenId = id;
+        return draft();
+      },
+      { id: "HSC-20261018-AB12" },
+    );
+    expect(created.id).toBe("HSC-20261018-AB12");
+    expect(seenId).toBe("HSC-20261018-AB12");
+    expect(store.get("HSC-20261018-AB12")).toBe(created);
+  });
+
+  it("create rejects a preset ID that is already stored, keeping the existing case", () => {
+    const first = store.create(draft(), { id: "HSC-20261018-AB12" });
+    expect(() => store.create(draft(), { id: "HSC-20261018-AB12" })).toThrow(/already exists/);
+    expect(store.get("HSC-20261018-AB12")).toBe(first);
+    expect(store.size()).toBe(1);
+  });
+
+  it("create rejects a preset ID that does not match the case ID format", () => {
+    expect(() => store.create(draft(), { id: "HSC-2026-x" })).toThrow(/Invalid case id/);
+    expect(store.size()).toBe(0);
+  });
+
   it("get returns undefined for an unknown ID", () => {
     expect(store.get("HSC-20261018-ZZZZ")).toBeUndefined();
   });

@@ -1,5 +1,5 @@
 import "server-only";
-import { LIMITS, type DecisionStatus } from "@/lib/domain";
+import { CASE_ID_REGEX, LIMITS, type DecisionStatus } from "@/lib/domain";
 import type { CaseForm, Decision, DecisionUpdate, HscUIMessage, ImageReport } from "@/lib/schemas";
 import { getEnv } from "@/server/env";
 import { createCaseId } from "./case-id";
@@ -33,8 +33,11 @@ export type CaseDraft = Omit<Case, "id" | "createdAt" | "lastActivityAt" | CaseD
 export type StatusSnapshot = Pick<Case, "currentStatus" | "statusHistory" | "needsInfoRounds">;
 
 export type CaseStore = {
-  /** Stores a new case; a function draft receives the generated ID (e.g. for the `data-case` part). */
-  create(draft: CaseDraft | ((id: string) => CaseDraft)): Case;
+  /**
+   * Stores a new case; a function draft receives its ID (e.g. for the `data-case` part).
+   * `options.id` presets the ID (created earlier with `createCaseId`); a duplicate or malformed one throws.
+   */
+  create(draft: CaseDraft | ((id: string) => CaseDraft), options?: { id?: string }): Case;
   /** Returns the case and refreshes `lastActivityAt`; undefined when missing or expired. */
   get(id: string): Case | undefined;
   /** Mutates the case in place and refreshes `lastActivityAt`; undefined when missing or expired. */
@@ -103,11 +106,16 @@ export function createCaseStore(options: CaseStoreOptions = {}): CaseStore {
   }
 
   return {
-    create(draftOrBuilder) {
+    create(draftOrBuilder, options = {}) {
       sweep();
+      const preset = options.id;
+      if (preset !== undefined) {
+        if (!CASE_ID_REGEX.test(preset)) throw new Error(`Invalid case id: ${preset}`);
+        if (cases.has(preset)) throw new Error(`Case ${preset} already exists`);
+      }
       while (cases.size >= maxCases) evictOldest();
       const at = now();
-      const id = createCaseId(at, (candidate) => cases.has(candidate));
+      const id = preset ?? createCaseId(at, (candidate) => cases.has(candidate));
       const draft = typeof draftOrBuilder === "function" ? draftOrBuilder(id) : draftOrBuilder;
       const created: Case = {
         currentStatus: draft.initialDecision.status,
