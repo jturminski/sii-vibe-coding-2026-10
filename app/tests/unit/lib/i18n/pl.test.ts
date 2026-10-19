@@ -136,3 +136,11 @@ describe("pl strings", () => {
     );
   });
 });
+
+describe("firstMessage.needsInfoFallback (PRD AC-20, ADR-003 §8)", () => {
+  it("says a specialist reviews the case because the information is not sufficient", () => {
+    expect(pl.firstMessage.needsInfoFallback).toBe(
+      "Dostępne informacje nie wystarczają do wstępnej oceny, dlatego Twoje zgłoszenie sprawdzi specjalista sklepu.",
+    );
+  });
+});

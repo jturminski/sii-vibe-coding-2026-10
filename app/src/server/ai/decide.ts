@@ -1,6 +1,7 @@
 import "server-only";
 import { generateText, Output } from "ai";
 import type { CaseType } from "@/lib/domain";
+import { pl } from "@/lib/i18n/pl";
 import { decisionSchema, type CaseForm, type Decision, type ImageReport } from "@/lib/schemas";
 import { buildFacts } from "@/server/ai/facts";
 import { decisionModel } from "@/server/ai/models";
@@ -17,6 +18,16 @@ export interface DecideInput {
   /** Request time; the facts (today, daysSincePurchase) are computed from it. */
   now: Date;
   signal: AbortSignal;
+}
+
+/**
+ * Deterministic guard for PRD AC-20 / ADR-003 §8: a NEEDS_INFO decision without questions leaves the customer
+ * nothing to answer, so it becomes MANUAL_REVIEW with the Polish fallback summary. The model's appliedRules,
+ * photoFindings and nextSteps are kept (no refs are invented). Any other decision is returned unchanged.
+ */
+export function enforceNeedsInfoQuestions(decision: Decision): Decision {
+  if (decision.status !== "NEEDS_INFO" || decision.questions.length > 0) return decision;
+  return { ...decision, status: "MANUAL_REVIEW", summary: pl.firstMessage.needsInfoFallback, questions: [] };
 }
 
 /**

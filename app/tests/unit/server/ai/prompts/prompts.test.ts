@@ -51,12 +51,17 @@ const complaintFacts = buildFacts({ purchaseDate: form.purchaseDate, now: NOW, c
 
 const allText = (prompt: { instructions: string; userText: string }) => `${prompt.instructions}\n${prompt.userText}`;
 
-const modules = { returnImage, complaintImage, returnDecision, complaintDecision };
-
 describe("prompt modules", () => {
-  it.each(Object.entries(modules))("%s exports PROMPT_VERSION '1'", (_name, mod) => {
+  it.each(Object.entries({ returnImage, complaintImage }))("%s exports PROMPT_VERSION '1'", (_name, mod) => {
     expect(mod.PROMPT_VERSION).toBe("1");
   });
+
+  it.each(Object.entries({ returnDecision, complaintDecision }))(
+    "%s exports PROMPT_VERSION '2' (AC-20 NEEDS_INFO questions rule)",
+    (_name, mod) => {
+      expect(mod.PROMPT_VERSION).toBe("2");
+    },
+  );
 });
 
 describe("image prompts (PRD §11.1, ADR-003 §4.2–4.3, AC-15)", () => {
@@ -203,6 +208,16 @@ describe("decision prompts (ADR-003 §4.4)", () => {
     expect(instructions).toMatch(/at least one/i);
     expect(instructions).toMatch(/no amounts/i);
     expect(instructions).toMatch(/"Ty"/);
+  });
+
+  it.each([
+    ["RETURN", buildReturn],
+    ["COMPLAINT", buildComplaint],
+  ] as const)("%s: NEEDS_INFO requires 1-3 concrete questions, else MANUAL_REVIEW (AC-20)", async (_t, build) => {
+    const { instructions } = await build();
+    expect(instructions).toMatch(/NEEDS_INFO requires 1 to 3 concrete questions in `questions`/);
+    expect(instructions).toMatch(/If you cannot ask at least one concrete question, the status must be MANUAL_REVIEW/);
+    expect(instructions).toMatch(/Never return NEEDS_INFO with an empty `questions` list/);
   });
 
   it("states the Polish output rule verbatim", () => {

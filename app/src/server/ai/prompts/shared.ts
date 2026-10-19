@@ -115,7 +115,8 @@ export function decisionOutputRules(): string {
     "- No amounts, no specific dates and no promises: do not state a refund amount, a calendar date (such as a repair date) or any outcome as final. You may repeat time limits that are written in the terms.",
     "- Do not ask for personal data (name, address, phone, email, order number, payment details).",
     `- ${POLISH_OUTPUT_RULE} Address the customer in the informal-polite second person ("Ty"), in plain language and a neutral, factual tone, without apologies or exaggerated empathy.`,
-    "- Ask at most 3 questions, and only when the status is NEEDS_INFO.",
+    "- NEEDS_INFO requires 1 to 3 concrete questions in `questions` that the customer can answer in text. If you cannot ask at least one concrete question, the status must be MANUAL_REVIEW. Never return NEEDS_INFO with an empty `questions` list.",
+    "- For every other status, `questions` must be empty.",
   ].join("\n");
 }
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import type { UIMessageStreamWriter } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pl } from "@/lib/i18n/pl";
 import { decisionSchema, imageReportSchema, type HscUIMessage } from "@/lib/schemas";
 
 const env = vi.hoisted(() => ({ POLICIES_DIR: "../docs/policies" }));
@@ -60,6 +61,14 @@ function spyWriter() {
 const IMAGE_ANALYSIS = loadFixture("return-image-analysis");
 const DECISION = loadFixture("return-decision");
 const CASE_ID = "HSC-20261019-AB12";
+
+/** D1 (docs/qa/final/report.md): the captured decision with status NEEDS_INFO and `questions` emptied. */
+const NEEDS_INFO_NO_QUESTIONS: LlmFixture = {
+  ...DECISION,
+  extracted: {
+    text: JSON.stringify({ ...(JSON.parse(DECISION.extracted.text) as object), status: "NEEDS_INFO", questions: [] }),
+  },
+};
 
 const form = {
   caseType: "RETURN" as const,
@@ -126,6 +135,48 @@ describe("runSubmission", () => {
       report: imageReportSchema.parse(JSON.parse(IMAGE_ANALYSIS.extracted.text)),
       decision: expectedDecision,
       firstMessageText: composeFirstMessage(CASE_ID, expectedDecision),
+    });
+  });
+
+  describe("guard: NEEDS_INFO without questions (PRD AC-20, ADR-003 §8)", () => {
+    it("returns MANUAL_REVIEW with the model's refs and the pl fallback summary", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      setModelsForTest({ vision: mockModel(IMAGE_ANALYSIS), decision: mockModel(NEEDS_INFO_NO_QUESTIONS) });
+      const { writer } = spyWriter();
+      const { decision } = await runSubmission(input(writer));
+      const modelDecision = decisionSchema.parse(JSON.parse(NEEDS_INFO_NO_QUESTIONS.extracted.text));
+      expect(decision).toEqual({
+        ...modelDecision,
+        status: "MANUAL_REVIEW",
+        summary: pl.firstMessage.needsInfoFallback,
+        questions: [],
+      });
+    });
+
+    it("composes the first message from the downgraded decision, without a questions section", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      setModelsForTest({ vision: mockModel(IMAGE_ANALYSIS), decision: mockModel(NEEDS_INFO_NO_QUESTIONS) });
+      const { writer } = spyWriter();
+      const { decision, firstMessageText } = await runSubmission(input(writer));
+      expect(firstMessageText).toBe(composeFirstMessage(CASE_ID, decision));
+      expect(firstMessageText).not.toContain(pl.firstMessage.headings.questions);
+      expect(firstMessageText).toContain(pl.firstMessage.needsInfoFallback);
+    });
+
+    it("logs the downgrade with console.warn", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      setModelsForTest({ vision: mockModel(IMAGE_ANALYSIS), decision: mockModel(NEEDS_INFO_NO_QUESTIONS) });
+      const { writer } = spyWriter();
+      await runSubmission(input(writer));
+      expect(warn).toHaveBeenCalledWith({ caseId: CASE_ID, step: "decide", downgradedFrom: "NEEDS_INFO" });
+    });
+
+    it("does not warn when the decision needs no downgrade", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      setModelsForTest({ vision: mockModel(IMAGE_ANALYSIS), decision: mockModel(DECISION) });
+      const { writer } = spyWriter();
+      await runSubmission(input(writer));
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 

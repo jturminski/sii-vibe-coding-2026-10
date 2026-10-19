@@ -97,6 +97,9 @@ export const pl = {
       questions: "Pytania",
     },
     caseIdPrefix: "Numer sprawy:",
+    /** Summary when the initial NEEDS_INFO decision has no questions and is downgraded (PRD AC-20). */
+    needsInfoFallback:
+      "Dostępne informacje nie wystarczają do wstępnej oceny, dlatego Twoje zgłoszenie sprawdzi specjalista sklepu.",
     disclaimer:
       "Ta decyzja jest wstępna i nie jest wiążąca. Ostateczną decyzję podejmuje sklep po fizycznym sprawdzeniu urządzenia. Nie ogranicza to Twoich ustawowych praw konsumenta.",
   },

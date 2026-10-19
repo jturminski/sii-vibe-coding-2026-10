@@ -3,7 +3,7 @@ import type { UIMessageStreamWriter } from "ai";
 import type { CaseForm, Decision, HscUIMessage, ImageReport, StageDataPart } from "@/lib/schemas";
 import { analyzeImage } from "@/server/ai/analyze-image";
 import { composeFirstMessage } from "@/server/ai/compose-first-message";
-import { decide } from "@/server/ai/decide";
+import { decide, enforceNeedsInfoQuestions } from "@/server/ai/decide";
 
 export interface RunSubmissionInput {
   caseId: string;
@@ -25,7 +25,8 @@ export interface RunSubmissionResult {
 
 /**
  * Submission pipeline (ADR-003 §3 `runSubmission`, §7): stage `analyzing` → `analyzeImage` →
- * stage `deciding` → `decide` → `composeFirstMessage`. Stage parts are transient (ADR-002 §4).
+ * stage `deciding` → `decide` → `enforceNeedsInfoQuestions` (AC-20 guard) → `composeFirstMessage`. The caller stores
+ * the guarded decision, so a downgraded case starts as MANUAL_REVIEW with `needsInfoRounds` 0. Stage parts are transient (ADR-002 §4).
  * Errors propagate unchanged.
  */
 export async function runSubmission({
@@ -42,7 +43,11 @@ export async function runSubmission({
   const report = await analyzeImage({ caseId, caseType, category, modelName, jpeg, signal });
 
   writeStage(writer, "deciding");
-  const decision = await decide({ caseId, caseType, form, report, now, signal });
+  const modelDecision = await decide({ caseId, caseType, form, report, now, signal });
+  const decision = enforceNeedsInfoQuestions(modelDecision);
+  if (decision.status !== modelDecision.status) {
+    console.warn({ caseId, step: "decide", downgradedFrom: modelDecision.status });
+  }
 
   return { report, decision, firstMessageText: composeFirstMessage(caseId, decision) };
 }
