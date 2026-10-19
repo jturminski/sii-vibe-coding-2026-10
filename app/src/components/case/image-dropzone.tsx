@@ -39,13 +39,15 @@ export type ImageDropzoneProps = {
   /** Already translated error message shown under the drop area. */
   error?: string;
   disabled?: boolean;
+  /** Exposes the field as required to assistive technology (the form shows a visual "*"). */
+  required?: boolean;
   hint?: string;
   /** Id of the hidden file input, so a form label can point at it. */
   id?: string;
 };
 
 /** Single-image picker with a drop area, a preview and a remove action (PRD AC-08..AC-10, §9.1 item 6). */
-export function ImageDropzone({ value, onChange, error, disabled, hint, id }: ImageDropzoneProps) {
+export function ImageDropzone({ value, onChange, error, disabled, required, hint, id }: ImageDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const requestRef = useRef(0);
   const [dragOver, setDragOver] = useState(false);
@@ -114,6 +116,8 @@ export function ImageDropzone({ value, onChange, error, disabled, hint, id }: Im
         onDrop={handleDrop}
         className={cn(
           "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-muted/40 p-6 text-center transition-colors",
+          // The form focuses the visually hidden input on an invalid photo; show where focus is (WCAG 2.4.7).
+          "has-[input[type=file]:focus]:border-ring has-[input[type=file]:focus]:ring-3 has-[input[type=file]:focus]:ring-ring/50",
           dragOver && "border-primary bg-primary/10",
           error && "border-destructive",
           disabled && "cursor-not-allowed opacity-60",
@@ -127,6 +131,7 @@ export function ImageDropzone({ value, onChange, error, disabled, hint, id }: Im
           className="sr-only"
           tabIndex={-1}
           disabled={disabled}
+          aria-required={required || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           onChange={(event) => void handleFiles(event.target.files)}

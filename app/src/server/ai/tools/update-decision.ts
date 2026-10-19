@@ -11,12 +11,8 @@ const DESCRIPTION = [
   "After the call, explain the change to the customer in Polish.",
 ].join(" ");
 
-/**
- * Reason stored and shown on the card when an ACCEPTED request is capped at MANUAL_REVIEW (AC-31, AC-31a).
- * Kept here instead of `src/lib/i18n/pl.ts` because that file is frontend-owned; move it there when convenient.
- */
-export const CHAT_DOWNGRADE_REASON =
-  "Status zgłoszenia to „Do weryfikacji przez specjalistę”. Na podstawie zdjęcia nie można potwierdzić zgłoszonej usterki ani stanu urządzenia, a same informacje z rozmowy nie wystarczą do przyjęcia zgłoszenia. Sprawę oceni specjalista sklepu po fizycznym sprawdzeniu urządzenia.";
+/** Reason stored and shown on the card when an ACCEPTED request is capped at MANUAL_REVIEW (AC-31, AC-31a). */
+export const CHAT_DOWNGRADE_REASON = pl.chat.downgradeReason;
 
 /** Highest status the chat may set for a case: ACCEPTED, or MANUAL_REVIEW when acceptance is not allowed. */
 export type MaxChatStatus = "ACCEPTED" | "MANUAL_REVIEW";

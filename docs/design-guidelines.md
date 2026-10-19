@@ -15,7 +15,7 @@ The app (`app/src/app/globals.css`) follows the `code10-design` skill, not the e
 | Muted foreground | `#666666` | 5.74:1 on white |
 | Destructive | `#C0392B` with white text | 5.44:1 |
 | Success | `#2E8B57`; status badge uses `#287A4C` with white text | 5.28:1 (badge) |
-| Border / input border | `#D6D6D6` / `#B8B8B8` | input border 1.98:1, below the 3:1 target; open for T6.2 |
+| Border / input border | `#D6D6D6` / `#8A8A8A` (`ink-400`) | input border 3.45:1 on white, the lightest Code10 grey meeting WCAG 1.4.11 (3:1) |
 | Radius | 8px buttons, inputs and cards; 4px small; 12px largest | |
 
 Use the website values only as a visual reference for Manual QA (`assets/homepage.png`).
