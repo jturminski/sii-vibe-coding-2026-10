@@ -2,6 +2,10 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Streamdown (AI Elements MessageResponse) ships Tailwind classes in dist JS. */
+@source "../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/@streamdown/code/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 /*
