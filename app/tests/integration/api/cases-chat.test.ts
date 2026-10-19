@@ -69,7 +69,10 @@ function mockModel(...steps: LanguageModelV4StreamPart[][]) {
 
 /** The captured text-only model call. */
 const textTurn = () => mockModel(...structuredClone(QUESTION.extracted.steps));
-/** The captured tool-call turn (updateDecision → ACCEPTED, then the text). */
+/**
+ * The captured tool-call turn (updateDecision → ACCEPTED, then the text). The photo of the seeded case does not
+ * confirm the fault, so the tool stores MANUAL_REVIEW instead (AC-31a, ADR-003 §4.5).
+ */
 const toolTurn = () => mockModel(...structuredClone(TOOL_TURN.extracted.steps));
 
 /** Replays the captured tool call (status changes), then the second model call fails mid-stream. */
@@ -167,6 +170,7 @@ describe("POST /api/cases/[caseId]/chat", () => {
     created = [];
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -256,7 +260,7 @@ describe("POST /api/cases/[caseId]/chat", () => {
   });
 
   describe("streamed turn", () => {
-    it("replays the captured tool-call turn: persists the updated status, the messages and the count", async () => {
+    it("replays the captured tool-call turn: persists the capped status (AC-31a), the messages and the count", async () => {
       const c = seed();
       const before = caseStore.get(c.id)!.lastActivityAt;
       setModelsForTest({ decision: toolTurn() });
@@ -273,8 +277,9 @@ describe("POST /api/cases/[caseId]/chat", () => {
       expect(chunks.at(-1)).toMatchObject({ type: "finish" });
 
       const stored = caseStore.get(c.id)!;
-      expect(stored.currentStatus).toBe(TOOL_TURN.extracted.statusAfter);
-      expect(stored.statusHistory.map((entry) => entry.status)).toEqual(["NEEDS_INFO", "ACCEPTED"]);
+      expect(TOOL_TURN.extracted.statusAfter).toBe("ACCEPTED");
+      expect(stored.currentStatus).toBe("MANUAL_REVIEW");
+      expect(stored.statusHistory.map((entry) => entry.status)).toEqual(["NEEDS_INFO", "MANUAL_REVIEW"]);
       expect(stored.userMessageCount).toBe(1);
       expect(stored.turnInProgress).toBe(false);
       expect(stored.lastActivityAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -285,7 +290,7 @@ describe("POST /api/cases/[caseId]/chat", () => {
       expect(reply.parts.find((part) => part.type === "tool-updateDecision")).toMatchObject({
         toolCallId: captured.toolCallId,
         state: "output-available",
-        output: { status: "ACCEPTED" },
+        output: { status: "MANUAL_REVIEW" },
       });
       const text = reply.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
       expect(text).toBe(TOOL_TURN.extracted.text);
@@ -350,7 +355,7 @@ describe("POST /api/cases/[caseId]/chat", () => {
       const stored = caseStore.get(c.id)!;
       expect(userIds(stored)).toEqual([message.id]);
       expect(stored.userMessageCount).toBe(1);
-      expect(stored.currentStatus).toBe("ACCEPTED");
+      expect(stored.currentStatus).toBe("MANUAL_REVIEW");
       expect(stored.statusHistory).toHaveLength(2);
     });
 

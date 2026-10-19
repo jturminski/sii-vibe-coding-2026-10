@@ -21,6 +21,7 @@ vi.mock("@/server/env", () => ({ getEnv: () => env }));
 import { createChatStream } from "@/server/ai/create-chat-stream";
 import { resetModels, setModelsForTest } from "@/server/ai/models";
 import { buildChatPrompt, PROMPT_VERSION as CHAT_PROMPT_VERSION } from "@/server/ai/prompts/chat";
+import { CHAT_DOWNGRADE_REASON } from "@/server/ai/tools/update-decision";
 import { caseStore, type Case } from "@/server/store/case-store";
 
 /**
@@ -29,6 +30,7 @@ import { caseStore, type Case } from "@/server/store/case-store";
  */
 interface ChatFixture {
   model: string;
+  seed: { initialDecision: Decision; userMessage: string };
   extracted: {
     steps: LanguageModelV4StreamPart[][];
     text: string;
@@ -56,22 +58,23 @@ const form: CaseForm = {
   reason: "Nie spełnia oczekiwań.",
 };
 
+/** A return whose photo confirms the condition, so an ACCEPTED tool call is applied as sent. */
 const imageReport: ImageReport = {
   caseType: "RETURN",
-  imageUsable: false,
-  imageIssue: "Zdjęcie jest zbyt ciemne.",
-  categoryMatch: "uncertain",
-  observedDevice: "Ciemny prostokątny przedmiot",
+  imageUsable: true,
+  imageIssue: null,
+  categoryMatch: "yes",
+  observedDevice: "Smartfon w pudełku",
   visibleDamage: [],
   signsOfUse: [],
-  visibleCompleteness: "Nie da się ocenić.",
+  visibleCompleteness: "Telefon, ładowarka i pudełko.",
   resaleCondition: "as_new",
 };
 
 const initialDecision: Decision = {
   status: "NEEDS_INFO",
   summary: "Potrzebujemy więcej informacji.",
-  photoFindings: "Zdjęcie jest zbyt ciemne.",
+  photoFindings: "Na zdjęciu nie widać śladów użytkowania.",
   appliedRules: [{ ref: "§2 ust. 1", explanation: "Zwrot w terminie 14 dni." }],
   nextSteps: ["Odpowiedz na pytania."],
   questions: ["Czy urządzenie ma ślady użytkowania?"],
@@ -216,22 +219,57 @@ describe("createChatStream", () => {
     expect(reply.parts.indexOf(toolPart!)).toBeLessThan(reply.parts.indexOf(textPart!));
   });
 
-  it("replays the captured tool-call turn: tool-updateDecision in output-available, then the captured text", async () => {
-    setModelsForTest({ decision: mockModel(...structuredClone(TOOL_TURN.extracted.steps)) });
-    const { finished } = await runTurn(caseRecord, userMessage("Laptop sam się wyłącza po 10 minutach."));
-
-    const captured = TOOL_TURN.extracted.toolCalls[0]!;
-    const reply = finished!.messages.at(-1)!;
-    const toolPart = reply.parts.find((part) => part.type === "tool-updateDecision");
-    expect(toolPart).toMatchObject({
-      toolCallId: captured.toolCallId,
-      state: "output-available",
-      input: accepted,
-      output: { status: TOOL_TURN.extracted.statusAfter, label: DECISION_STATUSES.ACCEPTED, reason: accepted.reason },
+  it("replays the captured tool-call turn on the captured complaint: the ACCEPTED call is stored as MANUAL_REVIEW (AC-31a)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const complaint = caseStore.create({
+      form: {
+        caseType: "COMPLAINT",
+        category: "LAPTOP",
+        modelName: "Lenovo IdeaPad 5",
+        purchaseDate: "2025-09-14",
+        reason: "Laptop przestał działać poprawnie podczas normalnego używania w domu.",
+      },
+      // The image report of the captured case: no visible fault, cause unknown, low confidence.
+      imageReport: {
+        caseType: "COMPLAINT",
+        imageUsable: true,
+        imageIssue: null,
+        categoryMatch: "yes",
+        observedDevice: "Otwarty laptop Lenovo z ekranem, klawiaturą i touchpadem.",
+        visibleDamage: [],
+        likelyCause: "unknown",
+        causeConfidence: "low",
+      },
+      initialDecision: TOOL_TURN.seed.initialDecision,
+      messages: [firstMessage],
     });
-    const text = reply.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
-    expect(text).toBe(TOOL_TURN.extracted.text);
-    expect(caseStore.get(caseRecord.id)!.currentStatus).toBe(TOOL_TURN.extracted.statusAfter);
+    setModelsForTest({ decision: mockModel(...structuredClone(TOOL_TURN.extracted.steps)) });
+    try {
+      const { finished } = await runTurn(complaint, userMessage(TOOL_TURN.seed.userMessage));
+
+      const captured = TOOL_TURN.extracted.toolCalls[0]!;
+      expect(TOOL_TURN.extracted.statusAfter).toBe("ACCEPTED");
+      const reply = finished!.messages.at(-1)!;
+      const toolPart = reply.parts.find((part) => part.type === "tool-updateDecision");
+      expect(toolPart).toMatchObject({
+        toolCallId: captured.toolCallId,
+        state: "output-available",
+        input: accepted,
+        output: {
+          status: "MANUAL_REVIEW",
+          label: DECISION_STATUSES.MANUAL_REVIEW,
+          reason: CHAT_DOWNGRADE_REASON,
+          appliedRules: TOOL_TURN.seed.initialDecision.appliedRules,
+        },
+      });
+      const text = reply.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
+      expect(text).toBe(TOOL_TURN.extracted.text);
+      const stored = caseStore.get(complaint.id)!;
+      expect(stored.currentStatus).toBe("MANUAL_REVIEW");
+      expect(stored.statusHistory.map((entry) => entry.status)).toEqual(["MANUAL_REVIEW"]);
+    } finally {
+      caseStore.delete(complaint.id);
+    }
   });
 
   it("replays the captured text-only turn: no tool part and the status stays unchanged", async () => {

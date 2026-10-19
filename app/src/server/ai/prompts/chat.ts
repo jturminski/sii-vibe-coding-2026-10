@@ -12,7 +12,7 @@ import {
   termsBlock,
 } from "./shared";
 
-export const PROMPT_VERSION = "1";
+export const PROMPT_VERSION = "2";
 
 export interface ChatPromptInput {
   caseRecord: Case;
@@ -33,6 +33,7 @@ const CHAT_RULES = [
   "- Call the updateDecision tool only when the status changes from currentStatus. Never call updateDecision to repeat the current status; explain an unchanged decision in text only. Call it at most once per reply, then write your explanation of the change after the tool call. The decision card shown to the customer contains the new status, the applied rules and the disclaimer, so your text explains why the status changed and what to do next.",
   "- Change the status only when new information changes the assessment under the terms, and cite the rules that apply in appliedRules.",
   "- If the current status is REJECTED because of visible damage in the image report, the customer's statements alone can change it at most to MANUAL_REVIEW, never to ACCEPTED.",
+  "- If the image report does not confirm the reported fault (the photo shows no visible damage or fault, likelyCause is unknown, causeConfidence is low, or the photo is not usable), the customer's statements alone can change the status at most to MANUAL_REVIEW, never to ACCEPTED. This also applies to answers to your NEEDS_INFO questions: a plausible description of an internal fault is a reason for MANUAL_REVIEW, not for ACCEPTED.",
   "- If needsInfoRounds is 2 or more and the information is still insufficient, call updateDecision with status MANUAL_REVIEW instead of asking again; explain that a store specialist will assess the case and give the case ID.",
   "- Ask at most 3 questions per reply, each concrete and answerable in text.",
   "- When the status is MANUAL_REVIEW, say that a store specialist will assess the case after physical inspection and give the case ID.",

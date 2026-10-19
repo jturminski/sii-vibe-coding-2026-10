@@ -65,8 +65,8 @@ function makeCase(overrides: Partial<Case> = {}): Case {
 }
 
 describe("chat prompt", () => {
-  it("exports PROMPT_VERSION '1'", () => {
-    expect(PROMPT_VERSION).toBe("1");
+  it("exports PROMPT_VERSION '2'", () => {
+    expect(PROMPT_VERSION).toBe("2");
   });
 
   it("contains sections 1–5 of the decision prompt: role, terms, facts, case data and image report", async () => {
@@ -143,6 +143,14 @@ describe("chat prompt", () => {
   it("caps a damage-based rejection at MANUAL_REVIEW (AC-31)", async () => {
     const prompt = await buildChatPrompt({ caseRecord: makeCase(), now: NOW });
     expect(prompt).toMatch(/REJECTED because of visible damage[\s\S]*at most to MANUAL_REVIEW, never to ACCEPTED/);
+  });
+
+  it("caps a change at MANUAL_REVIEW when the image report does not confirm the fault, also for NEEDS_INFO answers (AC-31a)", async () => {
+    const prompt = await buildChatPrompt({ caseRecord: makeCase(), now: NOW });
+    expect(prompt).toMatch(
+      /image report does not confirm the reported fault[\s\S]*no visible damage or fault[\s\S]*likelyCause is unknown[\s\S]*causeConfidence is low[\s\S]*at most to MANUAL_REVIEW, never to ACCEPTED/,
+    );
+    expect(prompt).toMatch(/answers to your NEEDS_INFO questions/);
   });
 
   it("escalates to MANUAL_REVIEW when needsInfoRounds ≥ 2 and information is still insufficient (AC-32)", async () => {
