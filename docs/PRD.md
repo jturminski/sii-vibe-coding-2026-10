@@ -130,13 +130,13 @@ The store needs a first-line assessment that applies the written terms consisten
 - **AC-17** A "Zwrot" decision uses the return terms and the return decision prompt. A "Reklamacja" decision uses the complaint terms and the complaint decision prompt.
 - **AC-18** A return with a purchase date more than 14 days before today is given status "Odrzucone", and the justification states the 14-day limit.
 - **AC-19** A complaint with a purchase date more than 2 years before today is given status "Odrzucone", and the justification states the 2-year liability period.
-- **AC-20** When the image analysis marks the image as unusable or the category as mismatched, the status is "Potrzebne dodatkowe informacje", unless a date rule (AC-18, AC-19) already gives "Odrzucone".
+- **AC-20** When the image analysis marks the image as unusable or the category as mismatched, the status is "Potrzebne dodatkowe informacje", unless a date rule (AC-18, AC-19) already gives "Odrzucone". A NEEDS_INFO decision always includes 1–3 questions; if the model returns NEEDS_INFO without questions, the system records "Do weryfikacji przez specjalistę" instead (deterministic server guard).
 - **AC-21** Every justification references at least one specific rule from the applicable terms document by its section number (for example "§3 ust. 2").
 - **AC-22** A return showing signs of use beyond inspection is never given "Odrzucone" on that basis alone. It is given "Do weryfikacji przez specjalistę" with a note about possible value reduction (per the return terms).
 
 ### First chat message
 - **AC-23** After a successful submission, the chat screen opens and the first message is from the agent.
-- **AC-24** The first message contains, in this order: a greeting, a decision status badge, a 1–3 sentence summary, a justification section (what the photo shows + which rule applies), a "Następne kroki" (Next steps) section with at least one concrete step, the disclaimer (section 11), and the case ID.
+- **AC-24** The first message contains, in this order: a greeting, a decision status badge, a 1–3 sentence summary, a justification section (what the photo shows + which rule applies), a "Następne kroki" (Next steps) section with at least one concrete step, the disclaimer (section 11), and the case ID. The status under "Decyzja" is shown as the same colored status badge as in the case summary panel.
 - **AC-25** The case ID has the format `HSC-YYYYMMDD-XXXX` (date of submission + 4 random uppercase alphanumeric characters) and is also shown in the case summary panel.
 - **AC-26** Message formatting (headings, bold, bullet lists) is rendered, not shown as raw markup.
 

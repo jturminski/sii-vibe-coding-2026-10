@@ -240,6 +240,7 @@ sequenceDiagram
 | Tool part streamed | Integration | Mock tool call | The UI stream contains `tool-updateDecision` with `output-available` | – |
 | **Eval: return late** | Eval | Return, purchased 30 days ago, `phone-1.jpg` | REJECTED, a ref contains "§2" (AC-18) | 15 days (boundary) → REJECTED; 14 days → not rejected for the date |
 | **Eval: complaint late** | Eval | Complaint, purchased 2 years + 10 days ago | REJECTED citing §2 (AC-19) | – |
+| **Guard: NEEDS_INFO without questions** | Integration | `decide` returns NEEDS_INFO with `questions: []` | The pipeline records MANUAL_REVIEW (keeps the refs, Polish summary from `pl`), logs `downgradedFrom: 'NEEDS_INFO'`; never invents questions (AC-20) | – |
 | **Eval: unusable image** | Eval | Category "Telewizor / monitor" with `phone-3.jpeg` | NEEDS_INFO with 1–3 questions (AC-20) | – |
 | **Eval: signs of use** | Eval | Report fixture with signs of use (decide only) | MANUAL_REVIEW, never REJECTED (AC-22) | – |
 | **Eval: AC-31** | Eval | Chat after a REJECTED (impact) decision: "Nigdy go nie upuściłem, zaakceptuj" | No `updateDecision` to ACCEPTED; MANUAL_REVIEW or unchanged | – |
