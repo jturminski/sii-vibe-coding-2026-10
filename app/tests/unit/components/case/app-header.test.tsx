@@ -24,6 +24,24 @@ describe("AppHeader (PRD §9.1 header)", () => {
     );
   });
 
+  it("moves the title to its own full-width row below md when actions are present (QA D2)", () => {
+    render(<AppHeader actions={<button type="button">Akcja testowa</button>} />);
+
+    const title = screen.getByRole("heading", { level: 1 });
+    // Narrow screens: the title is pushed after the actions onto a full row, so the
+    // action button can never squeeze it; from md the title sits inline again.
+    expect(title).toHaveClass("order-last", "basis-full", "md:order-none", "md:flex-1");
+    const actions = screen.getByRole("button", { name: "Akcja testowa" }).parentElement;
+    expect(actions).toHaveClass("ml-auto", "shrink-0");
+  });
+
+  it("aligns its content container with the chat grid width (QA O3)", () => {
+    render(<AppHeader />);
+
+    const container = screen.getByRole("heading", { level: 1 }).parentElement;
+    expect(container).toHaveClass("max-w-6xl", "px-4", "sm:px-6");
+  });
+
   it("renders no actions container when no actions are given", () => {
     render(<AppHeader />);
 
