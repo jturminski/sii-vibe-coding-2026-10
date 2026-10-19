@@ -16,7 +16,9 @@ export async function getPolicy(caseType: CaseType): Promise<string> {
   const cached = cache.get(caseType);
   if (cached !== undefined) return cached;
 
-  const file = path.resolve(process.cwd(), getEnv().POLICIES_DIR, POLICY_FILES[caseType]);
+  // Read at runtime from a configurable directory; turbopackIgnore stops Turbopack from tracing the
+  // whole project for this dynamic path (suggested by its build warning; see 08-turbopack.md "Magic Comments").
+  const file = path.resolve(/* turbopackIgnore: true */ process.cwd(), getEnv().POLICIES_DIR, POLICY_FILES[caseType]);
   let text: string;
   try {
     text = await readFile(file, "utf8");

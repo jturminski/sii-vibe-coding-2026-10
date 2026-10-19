@@ -8,7 +8,6 @@ import {
   type ErrorCode,
   type HscUIMessage,
 } from "@/lib/schemas";
-import { composeFirstMessage } from "@/server/ai/compose-first-message";
 import { runSubmission } from "@/server/ai/run-submission";
 import { jsonError, logServerError, PROCESSING_FAILED } from "@/server/http/errors";
 import { compressImage, validateImage } from "@/server/image";
@@ -99,27 +98,18 @@ export async function POST(request: Request): Promise<Response> {
   // The compressed image lives only in this request; it is never stored with the case.
   const { form, jpeg } = parsed;
 
-  // ID for the pipeline's log lines; the store assigns the persisted ID (see the report on T4.1).
-  const pipelineCaseId = createCaseId(now, (id) => caseStore.get(id) !== undefined);
+  const caseId = createCaseId(now, (id) => caseStore.get(id) !== undefined);
   const messageId = generateId();
   const metadata = { createdAt: now.getTime() };
 
   const stream = createUIMessageStream<HscUIMessage>({
     execute: async ({ writer }) => {
       writer.write({ type: "start", messageId, messageMetadata: metadata });
-      const { report, decision } = await runSubmission({
-        caseId: pipelineCaseId,
-        form,
-        jpeg,
-        now,
-        signal,
-        writer,
-      });
+      const { report, decision, firstMessageText } = await runSubmission({ caseId, form, jpeg, now, signal, writer });
 
-      const stored = caseStore.create((caseId) => {
-        const caseData: CaseDataPart = { caseId, ...form, status: decision.status };
-        const text = composeFirstMessage(caseId, decision);
-        return {
+      const caseData: CaseDataPart = { caseId, ...form, status: decision.status };
+      caseStore.create(
+        {
           form,
           imageReport: report,
           initialDecision: decision,
@@ -136,27 +126,24 @@ export async function POST(request: Request): Promise<Response> {
               metadata,
               parts: [
                 { type: "data-case", data: caseData },
-                { type: "text", text, state: "done" },
+                { type: "text", text: firstMessageText, state: "done" },
               ],
             },
           ],
-        };
-      });
+        },
+        { id: caseId },
+      );
 
-      const [message] = stored.messages;
-      for (const part of message?.parts ?? []) {
-        if (part.type === "data-case") writer.write({ type: "data-case", data: part.data });
-        if (part.type === "text") {
-          const textId = generateId();
-          writer.write({ type: "text-start", id: textId });
-          writer.write({ type: "text-delta", id: textId, delta: part.text });
-          writer.write({ type: "text-end", id: textId });
-        }
-      }
+      // Written only after the case is stored, so a client never sees an ID the store lacks.
+      const textId = generateId();
+      writer.write({ type: "data-case", data: caseData });
+      writer.write({ type: "text-start", id: textId });
+      writer.write({ type: "text-delta", id: textId, delta: firstMessageText });
+      writer.write({ type: "text-end", id: textId });
       writer.write({ type: "finish", finishReason: "stop" });
     },
     onError: (error) => {
-      logServerError({ caseId: pipelineCaseId, code: PROCESSING_FAILED, cause: error });
+      logServerError({ caseId, code: PROCESSING_FAILED, cause: error });
       return PROCESSING_FAILED;
     },
   });

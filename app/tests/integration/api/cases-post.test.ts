@@ -203,6 +203,19 @@ describe("POST /api/cases", () => {
       ]);
     });
 
+    it("uses one case ID in the pipeline log lines, the data-case part and the store", async () => {
+      const chunks = await readUIStream(await POST(postRequest()));
+      const caseId = caseIdOf(chunks);
+      const logged = vi
+        .mocked(console.info)
+        .mock.calls.map(([entry]) => entry as { caseId?: string; step?: string })
+        .filter((entry) => entry.step === "analyzeImage" || entry.step === "decide");
+
+      expect(logged.map((entry) => entry.step)).toEqual(["analyzeImage", "decide"]);
+      expect(logged.map((entry) => entry.caseId)).toEqual([caseId, caseId]);
+      expect(caseStore.get(caseId)?.id).toBe(caseId);
+    });
+
     it("counts a NEEDS_INFO decision as the first information round", async () => {
       const needsInfo = { ...EXPECTED_DECISION, status: "NEEDS_INFO", questions: ["Kiedy pojawiła się usterka?"] };
       useModels({ decision: mockModel(DECISION, JSON.stringify(needsInfo)) });
