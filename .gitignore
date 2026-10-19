@@ -13,8 +13,11 @@ skills-lock.json
 __pycache__/
 *.pyc
 .playwright-cli
+.playwright-mcp
 
 # Private agent briefs and Java build artifacts
 .agent-briefs/
 **/target/
 *.class
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
