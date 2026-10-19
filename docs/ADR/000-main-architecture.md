@@ -153,7 +153,7 @@ Env is validated with Zod at server start (first import of `server/env`). A miss
 ### D1 — Next.js App Router monolith with route handlers
 **Status:** Accepted · **Date:** 2026-10-18
 **Context:** The brief requires Next.js App Router + TypeScript strict. The app needs a form, a streaming chat and server-side LLM calls with a secret key.
-**Decision:** One Next.js app in `app/`. The UI is a single client-rendered page. The server logic lives in route handlers on the Node.js runtime (`export const runtime = 'nodejs'`, required by sharp). Server Actions are not used for the LLM flows because route handlers are the documented integration point for `useChat` and stream responses.
+**Decision:** One Next.js app in `app/`. The UI is a single client-rendered page. The server logic lives in route handlers on the Node.js runtime (the default with `cacheComponents`, required by sharp; the `runtime` export is not allowed in that mode). Server Actions are not used for the LLM flows because route handlers are the documented integration point for `useChat` and stream responses.
 **Rejected alternatives:**
 - Separate Express API + Vite SPA: two processes and CORS for no MVP benefit.
 - Server Actions for submission: `useChat` and the UI message stream protocol expect an HTTP endpoint, and the Server Action body limit (1 MB by default) conflicts with 10 MB uploads.

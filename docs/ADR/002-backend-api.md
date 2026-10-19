@@ -16,7 +16,7 @@ This ADR covers the route handlers, request validation, the in-memory case store
 
 | Library | Context7 ID or official docs | Used for |
 |---|---|---|
-| Next.js route handlers | `/vercel/next.js` | `POST`/`DELETE` handlers, `request.formData()`, `runtime = 'nodejs'`, `maxDuration` |
+| Next.js route handlers | `/vercel/next.js` | `POST`/`DELETE` handlers, `request.formData()`, `maxDuration` (no `runtime` export with Cache Components) |
 | AI SDK UI stream | `/vercel/ai` | `createUIMessageStream`, `createUIMessageStreamResponse`, `toUIMessageStream`, data parts (transient + persistent) |
 | sharp | https://sharp.pixelplumbing.com/api-resize | Rotate, resize, JPEG output, metadata stripping |
 | file-type | https://github.com/sindresorhus/file-type | Magic-byte detection |
@@ -37,7 +37,7 @@ This ADR covers the route handlers, request validation, the in-memory case store
 | `server/store/caseId` | `HSC-` + date `YYYYMMDD` (Europe/Warsaw, via `Intl.DateTimeFormat`) + `-` + 4 chars from `A–Z0-9` using `crypto.getRandomValues`. Regenerated on collision with an existing key. |
 | `server/http/errors` | Maps internal errors to stable codes. Never serializes stack traces or upstream messages (AC-36). Logs `{ caseId?, code, cause }` via `console.error`. |
 
-The route handlers export `runtime = 'nodejs'` and `maxDuration = 60`. The pipeline uses one `AbortSignal.timeout(60_000)`, created at request start and passed to both model calls (PRD AC-34). The chat route uses its own 60 s signal per turn.
+The route handlers export `maxDuration = 60`. They run on the Node.js runtime, which is the default and the only runtime with `cacheComponents: true`; the `runtime` segment config is rejected by the build in that mode (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/02-route-segment-config/runtime.md`). The pipeline uses one `AbortSignal.timeout(60_000)`, created at request start and passed to both model calls (PRD AC-34). The chat route uses its own 60 s signal per turn.
 
 The store mutations are synchronous within one event-loop tick, so no locks are needed in a single process. The chat route rejects a second concurrent turn for the same case with 409 `TURN_IN_PROGRESS`, using a `turnInProgress` flag on the Case that is cleared in `finally`.
 
@@ -228,4 +228,4 @@ sequenceDiagram
 - **TAC-002-02** The vision model receives `mediaType: image/jpeg` and bytes whose decoded longest side is ≤ 1568 px, for all sample images.
 - **TAC-002-03** After a failed submission, the store size is unchanged.
 - **TAC-002-04** A retried chat message is never stored twice and never counted twice.
-- **TAC-002-05** The route handlers declare `runtime = 'nodejs'`.
+- **TAC-002-05** The route handlers run on the Node.js runtime and do not export `runtime` (incompatible with `cacheComponents`); `npm run build` lists them as dynamic (ƒ).
