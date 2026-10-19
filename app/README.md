@@ -11,6 +11,25 @@ Next.js 16 (App Router, TypeScript strict) app for the MVP described in [`../doc
 
 Scripts and agent rules: see [`AGENTS.md`](AGENTS.md).
 
+## Running and testing
+
+| Command | What it does | Network / cost |
+|---|---|---|
+| `npm run dev` | Dev server on http://localhost:3000 | Real OpenRouter calls when you submit a case or chat |
+| `npm run build` then `npm run start` | Production build and server | As above |
+| `npm run typecheck` | TypeScript, strict | None |
+| `npm run lint` | ESLint | None |
+| `npm test` | Unit + integration tests (Vitest); a network guard blocks real calls, LLM responses come from `tests/fixtures/llm/` | None |
+| `npm run check:bundle` | After `build`: fails if `.next/static` contains the API key, `sk-or-` or server code | None |
+| `npm run test:e2e` | Playwright E2E (desktop + mobile) against the real stack; starts the app on port 3000 | **Real LLM calls** (2 per submission, 1–2 per chat turn) |
+| `npm run test:eval` | Real-model evals (`tests/eval/*.eval.ts`), each scenario must pass 3/3 | **Real LLM calls** (about 100 for the full suite) |
+| `CAPTURE_FIXTURES=1 npx vitest run --config vitest.eval.config.ts tests/eval/capture-llm-fixtures.eval.ts` | Re-captures the LLM fixtures used by the mocks | **Real LLM calls** |
+
+Notes:
+
+- The E2E and eval suites need `.env.local` with a valid key. New OpenRouter accounts are limited to 20 requests per minute, so run them sequentially: `npm run test:e2e -- --workers=1` and `npm run test:eval -- --no-file-parallelism`.
+- QA reports with screenshots and AC/TAC traceability: [`../docs/qa/phase-4/`](../docs/qa/phase-4/report.md), [`../docs/qa/phase-5/`](../docs/qa/phase-5/report.md), [`../docs/qa/final/`](../docs/qa/final/report.md).
+
 ## Course scaffolding checklist
 
 Some items are provided by the boilerplate (`create-next-app` ships `tsconfig.json`, ESLint config). Others were added explicitly.
@@ -38,13 +57,13 @@ Some items are provided by the boilerplate (`create-next-app` ships `tsconfig.js
 
 ### AI integration
 - [x] Vercel AI SDK (`ai` 7, `@ai-sdk/react` 4) + `@openrouter/ai-sdk-provider`
-- [ ] API route / endpoint for chat (ADR-002)
+- [x] API routes: `POST /api/cases`, `POST /api/cases/[caseId]/chat`, `DELETE /api/cases/[caseId]` (ADR-002)
 - [x] Model configuration — env validation and model fallback in `src/server/env.ts`
 
 ### Design
-- [ ] Design tokens (`../assets/design-tokens.json`) mapped into `src/app/globals.css`
+- [x] Design tokens mapped into `src/app/globals.css` (code10-design skill values, see `../docs/design-guidelines.md`)
 - [x] Tailwind CSS 4 + shadcn/ui + AI Elements
-- [ ] Logo and favicon (`../assets/`) — logo copied to `public/`, favicon still to apply
+- [x] Logo (`public/logo.png`) and favicon (`src/app/icon.png`)
 - [x] Design system doc (`../docs/design-guidelines.md`)
 
 ### Documentation
