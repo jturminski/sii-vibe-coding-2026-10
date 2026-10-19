@@ -65,8 +65,8 @@ function makeCase(overrides: Partial<Case> = {}): Case {
 }
 
 describe("chat prompt", () => {
-  it("exports PROMPT_VERSION '3'", () => {
-    expect(PROMPT_VERSION).toBe("3");
+  it("exports PROMPT_VERSION '4'", () => {
+    expect(PROMPT_VERSION).toBe("4");
   });
 
   it("contains sections 1–5 of the decision prompt: role, terms, facts, case data and image report", async () => {
@@ -151,6 +151,14 @@ describe("chat prompt", () => {
       /image report does not confirm the reported fault[\s\S]*no visible damage or fault[\s\S]*likelyCause is unknown[\s\S]*causeConfidence is low[\s\S]*at most to MANUAL_REVIEW, never to ACCEPTED/,
     );
     expect(prompt).toMatch(/answers to your NEEDS_INFO questions/);
+  });
+
+  it("does not accept form corrections in the chat and points to 'Nowe zgłoszenie' (AC-31b)", async () => {
+    const prompt = await buildChatPrompt({ caseRecord: makeCase(), now: NOW });
+    expect(prompt).toMatch(
+      /customer corrects the form data \(case type, category, model or purchase date\)[\s\S]*cannot be changed in this chat[\s\S]*start a new case with the "Nowe zgłoszenie" button and the correct data/,
+    );
+    expect(prompt).toMatch(/Never change the status to ACCEPTED because of a correction; at most to MANUAL_REVIEW/);
   });
 
   it("escalates to MANUAL_REVIEW when needsInfoRounds ≥ 2 and information is still insufficient (AC-32)", async () => {
