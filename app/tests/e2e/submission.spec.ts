@@ -74,7 +74,7 @@ async function submitAndWaitForChat(page: Page) {
   await expect(page.getByText(pl.processing.analyzingImage).or(page.getByText(pl.processing.preparingDecision))).toBeVisible();
   await expect(page.getByRole("button", { name: pl.form.submit })).toBeDisabled();
   expect((await response).status()).toBe(200);
-  await expect(page.getByTestId("chat-placeholder")).toBeVisible({ timeout: CHAT_TIMEOUT });
+  await expect(page.getByTestId("chat-screen")).toBeVisible({ timeout: CHAT_TIMEOUT });
   await expect(page.getByText(pl.errors.processingBanner)).toHaveCount(0);
 }
 
