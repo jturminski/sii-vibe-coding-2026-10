@@ -3,28 +3,39 @@
  * analyzeImage, decide) into `tests/fixtures/llm/<name>.json`. Unit and integration mocks are
  * derived from these captures (repo AGENTS.md, TDD Rules).
  *
+ * The chat block captures streamed chat turns (ADR-003 §3 createChatStream, §7): the raw SSE text
+ * of every model call plus the provider stream-part sequence per call (`extracted.steps`), from which
+ * the `MockLanguageModelV4` `doStream` mocks are derived.
+ *
  * Makes real, paid calls. Runs only on demand:
  *   CAPTURE_FIXTURES=1 npx vitest run --config vitest.eval.config.ts tests/eval/capture-llm-fixtures.eval.ts
+ * Only the chat turns (3 model calls): add `-t "chat"`.
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { generateText, Output } from "ai";
+import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
+import { generateText, Output, wrapLanguageModel } from "ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { daysBetween, todayInWarsaw, type CaseType } from "@/lib/domain";
 import {
   complaintImageReportSchema,
   decisionSchema,
+  type Decision,
+  type HscUIMessage,
   returnImageReportSchema,
   type CaseForm,
   type ComplaintImageReport,
   type ImageReport,
   type ReturnImageReport,
 } from "@/lib/schemas";
+import { composeFirstMessage } from "@/server/ai/compose-first-message";
+import { createChatStream } from "@/server/ai/create-chat-stream";
 import { buildFacts } from "@/server/ai/facts";
 import { decisionModel, resetModels, setModelsForTest, visionModel } from "@/server/ai/models";
+import { PROMPT_VERSION as CHAT_VERSION } from "@/server/ai/prompts/chat";
 import { PROMPT_VERSION as COMPLAINT_DECISION_VERSION } from "@/server/ai/prompts/complaint-decision";
 import { PROMPT_VERSION as COMPLAINT_IMAGE_VERSION } from "@/server/ai/prompts/complaint-image";
 import { PROMPT_VERSION as RETURN_DECISION_VERSION } from "@/server/ai/prompts/return-decision";
@@ -32,6 +43,7 @@ import { PROMPT_VERSION as RETURN_IMAGE_VERSION } from "@/server/ai/prompts/retu
 import { buildDecisionPrompt, buildImagePrompt } from "@/server/ai/prompts/shared";
 import { getEnv, resolveModelIds } from "@/server/env";
 import { compressImage } from "@/server/image";
+import { caseStore, type Case } from "@/server/store/case-store";
 
 const FIXTURES_DIR = path.resolve(process.cwd(), "tests/fixtures/llm");
 /** Real example photos (see that folder's README); never generated images. */
@@ -83,6 +95,16 @@ function createRecordingFetch(log: RecordedExchange[]): typeof fetch {
     });
     return response;
   };
+}
+
+/** Writes a fixture after checking it holds no API key or authorization data. */
+async function writeFixture(name: string, fixture: unknown): Promise<void> {
+  const json = JSON.stringify(fixture, null, 2) + "\n";
+  expect(json).not.toContain(getEnv().OPENROUTER_API_KEY);
+  expect(json).not.toMatch(/sk-or/);
+  expect(json).not.toMatch(/authorization|bearer/i);
+  await mkdir(FIXTURES_DIR, { recursive: true });
+  await writeFile(path.join(FIXTURES_DIR, `${name}.json`), json, "utf8");
 }
 
 function isoDaysAgo(days: number, now: Date): string {
@@ -145,12 +167,7 @@ capture("capture real OpenRouter fixtures", () => {
       response: exchange.response,
       extracted: { text },
     };
-    const json = JSON.stringify(fixture, null, 2) + "\n";
-    expect(json).not.toContain(getEnv().OPENROUTER_API_KEY);
-    expect(json).not.toMatch(/sk-or/);
-    expect(json).not.toMatch(/authorization/i);
-    await mkdir(FIXTURES_DIR, { recursive: true });
-    await writeFile(path.join(FIXTURES_DIR, `${name}.json`), json, "utf8");
+    await writeFixture(name, fixture);
     return exchange.response.status;
   }
 
@@ -237,5 +254,190 @@ capture("capture real OpenRouter fixtures", () => {
 
   it("complaint decision", async () => {
     await captureDecision("COMPLAINT", COMPLAINT_DECISION_VERSION);
+  });
+});
+
+capture("capture real OpenRouter chat fixtures", () => {
+  const now = new Date();
+  const log: RecordedExchange[] = [];
+  /** Provider stream parts, one array per model call (`doStream`), in arrival order. */
+  const steps: LanguageModelV4StreamPart[][] = [];
+  const summary: Record<string, unknown> = {};
+  let modelId: string;
+
+  /** The T3.2 complaint captures: the same form, the captured image report and the captured decision. */
+  const form: CaseForm = {
+    caseType: "COMPLAINT",
+    category: "LAPTOP",
+    modelName: "Lenovo IdeaPad 5",
+    purchaseDate: isoDaysAgo(400, now),
+    reason: "Laptop przestał działać poprawnie podczas normalnego używania w domu.",
+  };
+  let imageReport: ImageReport;
+  let capturedDecision: Decision;
+
+  beforeAll(async () => {
+    const load = async (name: string) =>
+      JSON.parse(await readFile(path.join(FIXTURES_DIR, `${name}.json`), "utf8")) as { extracted: { text: string } };
+    imageReport = complaintImageReportSchema.parse(JSON.parse((await load("complaint-image-analysis")).extracted.text));
+    capturedDecision = decisionSchema.parse(JSON.parse((await load("complaint-decision")).extracted.text));
+
+    modelId = resolveModelIds(getEnv()).decision;
+    const provider = createOpenRouter({
+      apiKey: getEnv().OPENROUTER_API_KEY,
+      appName: "Hardware Service Decision Copilot",
+      fetch: createRecordingFetch(log),
+    });
+    // Records every provider stream part while passing it on unchanged.
+    const recorded = wrapLanguageModel({
+      model: provider.chat(modelId, MODEL_SETTINGS),
+      middleware: {
+        wrapStream: async ({ doStream }) => {
+          const result = await doStream();
+          const parts: LanguageModelV4StreamPart[] = [];
+          steps.push(parts);
+          const stream = result.stream.pipeThrough(
+            new TransformStream<LanguageModelV4StreamPart, LanguageModelV4StreamPart>({
+              transform(part, controller) {
+                parts.push(structuredClone(part));
+                controller.enqueue(part);
+              },
+            }),
+          );
+          return { ...result, stream };
+        },
+      },
+    });
+    setModelsForTest({ decision: recorded });
+  });
+
+  afterAll(() => {
+    resetModels();
+    console.log("[capture] chat summary\n" + JSON.stringify(summary, null, 2));
+  });
+
+  /** Seeds the case as `POST /api/cases` stores it: first message, status history, NEEDS_INFO rounds. */
+  function seedCase(decision: Decision): Case {
+    const createdAt = now.getTime();
+    return caseStore.create((id) => ({
+      form,
+      imageReport,
+      initialDecision: decision,
+      currentStatus: decision.status,
+      statusHistory: [
+        { status: decision.status, reason: decision.summary, appliedRules: decision.appliedRules, at: now },
+      ],
+      needsInfoRounds: decision.status === "NEEDS_INFO" ? 1 : 0,
+      userMessageCount: 0,
+      messages: [
+        {
+          id: "m-first",
+          role: "assistant",
+          metadata: { createdAt },
+          parts: [
+            { type: "data-case", data: { caseId: id, ...form, status: decision.status } },
+            { type: "text", text: composeFirstMessage(id, decision), state: "done" },
+          ],
+        },
+      ],
+    }));
+  }
+
+  async function captureTurn(name: string, decision: Decision, text: string) {
+    const caseRecord = seedCase(decision);
+    const statusBefore = caseRecord.currentStatus;
+    const message: HscUIMessage = { id: "u-1", role: "user", parts: [{ type: "text", text }] };
+    const logStart = log.length;
+    const stepStart = steps.length;
+    let messages: HscUIMessage[] = [];
+
+    const started = performance.now();
+    const stream = await createChatStream({
+      caseRecord,
+      message,
+      signal: AbortSignal.timeout(120_000),
+      onFinish: (event) => {
+        messages = event.messages;
+      },
+    });
+    const uiChunks: unknown[] = [];
+    const reader = stream.getReader();
+    for (let r = await reader.read(); !r.done; r = await reader.read()) uiChunks.push(r.value);
+    const latencyMs = Math.round(performance.now() - started);
+
+    const exchanges = log.slice(logStart);
+    const turnSteps = steps.slice(stepStart);
+    expect(exchanges.length, "one HTTP exchange per model call").toBe(turnSteps.length);
+    const reply = messages.at(-1);
+    expect(reply?.role).toBe("assistant");
+    const replyText = (reply?.parts ?? [])
+      .flatMap((part) => (part.type === "text" ? [part.text] : []))
+      .join("");
+    const toolCalls = turnSteps.flat().flatMap((part) => (part.type === "tool-call" ? [part] : []));
+    const stored = caseStore.get(caseRecord.id)!;
+
+    await writeFixture(name, {
+      capturedAt: new Date().toISOString(),
+      model: modelId,
+      promptVersion: CHAT_VERSION,
+      seed: {
+        caseType: form.caseType,
+        currentStatus: statusBefore,
+        needsInfoRounds: decision.status === "NEEDS_INFO" ? 1 : 0,
+        initialDecision: decision,
+        userMessage: text,
+      },
+      exchanges,
+      extracted: {
+        /** Provider stream parts per model call; `MockLanguageModelV4` `doStream` replays them. */
+        steps: turnSteps,
+        text: replyText,
+        toolCalls,
+        statusAfter: stored.currentStatus,
+        reply,
+      },
+    });
+    summary[name] = {
+      model: modelId,
+      latencyMs,
+      modelCalls: turnSteps.length,
+      statuses: exchanges.map((e) => e.response.status),
+      statusBefore,
+      statusAfter: stored.currentStatus,
+      toolCalls: toolCalls.map((call) => ({ toolName: call.toolName, input: JSON.parse(call.input) })),
+      text: replyText,
+    };
+    caseStore.delete(caseRecord.id);
+    return { replyText, toolCalls };
+  }
+
+  it("chat turn without a status change (question about the complaint duration)", async () => {
+    const { replyText, toolCalls } = await captureTurn(
+      "chat-question",
+      capturedDecision,
+      "Ile trwa rozpatrzenie reklamacji?",
+    );
+    expect(replyText.length).toBeGreaterThan(0);
+    expect(toolCalls).toEqual([]);
+  });
+
+  it("chat turn answering a NEEDS_INFO question", async () => {
+    const needsInfo: Decision = {
+      status: "NEEDS_INFO",
+      summary:
+        "Aby ocenić reklamację, potrzebujemy dokładniejszego opisu usterki. Na zdjęciu nie widać uszkodzeń zewnętrznych.",
+      photoFindings: capturedDecision.photoFindings,
+      appliedRules: capturedDecision.appliedRules,
+      nextSteps: ["Odpowiedz na pytania poniżej."],
+      questions: [
+        "Na czym dokładnie polega usterka i kiedy się pojawiła?",
+        "Czy laptop upadł, został uderzony lub miał kontakt z cieczą?",
+      ],
+    };
+    await captureTurn(
+      "chat-needs-info-answer",
+      needsInfo,
+      "Od tygodnia laptop sam się wyłącza po około 10 minutach pracy, nawet przy przeglądaniu internetu. Nigdy nie upadł, nie był uderzony ani zalany, cały czas stoi na biurku w domu.",
+    );
   });
 });

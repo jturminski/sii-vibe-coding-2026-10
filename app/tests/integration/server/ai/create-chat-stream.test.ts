@@ -1,10 +1,19 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DECISION_STATUSES } from "@/lib/domain";
 import { pl } from "@/lib/i18n/pl";
-import type { CaseForm, Decision, DecisionUpdate, HscUIMessage, ImageReport } from "@/lib/schemas";
+import {
+  decisionUpdateSchema,
+  type CaseForm,
+  type Decision,
+  type DecisionUpdate,
+  type HscUIMessage,
+  type ImageReport,
+} from "@/lib/schemas";
 
 const env = vi.hoisted(() => ({ POLICIES_DIR: "../docs/policies", CASE_TTL_MINUTES: 60 }));
 vi.mock("@/server/env", () => ({ getEnv: () => env }));
@@ -14,13 +23,30 @@ import { resetModels, setModelsForTest } from "@/server/ai/models";
 import { buildChatPrompt, PROMPT_VERSION as CHAT_PROMPT_VERSION } from "@/server/ai/prompts/chat";
 import { caseStore, type Case } from "@/server/store/case-store";
 
-// Stream mocks follow the LanguageModelV4StreamPart union in node_modules/@ai-sdk/provider/dist/index.d.ts.
-// No real streaming tool-call capture exists in tests/fixtures/llm yet (see the task report).
-const MODEL_ID = "openai/gpt-6-luna";
-const usage = {
-  inputTokens: { total: 1200, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
-  outputTokens: { total: 80, text: undefined, reasoning: 20 },
-};
+/**
+ * Real streamed chat turns from `tests/eval/capture-llm-fixtures.eval.ts`: `extracted.steps` holds the
+ * provider stream parts of each model call, replayed here by `MockLanguageModelV4` `doStream`.
+ */
+interface ChatFixture {
+  model: string;
+  extracted: {
+    steps: LanguageModelV4StreamPart[][];
+    text: string;
+    toolCalls: { toolCallId: string; toolName: string; input: string }[];
+    statusAfter: string;
+  };
+}
+
+function loadChatFixture(name: string): ChatFixture {
+  const file = path.resolve(process.cwd(), "tests/fixtures/llm", `${name}.json`);
+  return JSON.parse(readFileSync(file, "utf8")) as ChatFixture;
+}
+
+/** A question answered in text only (one model call). */
+const QUESTION = loadChatFixture("chat-question");
+/** A NEEDS_INFO answer: call 1 streams reasoning and the updateDecision tool call, call 2 the text. */
+const TOOL_TURN = loadChatFixture("chat-needs-info-answer");
+const MODEL_ID = QUESTION.model;
 
 const form: CaseForm = {
   caseType: "RETURN",
@@ -57,11 +83,8 @@ const needsInfo: DecisionUpdate = {
   appliedRules: [{ ref: "§3 ust. 2", explanation: "Stan urządzenia musi być znany." }],
 };
 
-const accepted: DecisionUpdate = {
-  status: "ACCEPTED",
-  reason: "Urządzenie jest kompletne i bez śladów użytkowania.",
-  appliedRules: [{ ref: "§2 ust. 1", explanation: "Zwrot złożony w terminie 14 dni." }],
-};
+/** The captured updateDecision input (status ACCEPTED). */
+const accepted: DecisionUpdate = decisionUpdateSchema.parse(JSON.parse(TOOL_TURN.extracted.toolCalls[0]!.input));
 
 const firstMessage: HscUIMessage = {
   id: "m-first",
@@ -77,24 +100,41 @@ const firstMessage: HscUIMessage = {
 
 const userMessage = (text: string, id = "u-1"): HscUIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 
+/**
+ * The captured tool-call model call with another input and call ID: the captured input deltas are
+ * replaced by one delta carrying `input`; every other part is replayed as captured.
+ */
 function toolCallStep(input: DecisionUpdate, toolCallId = "call-1"): LanguageModelV4StreamPart[] {
-  return [
-    { type: "stream-start", warnings: [] },
-    { type: "response-metadata", id: "gen-1", modelId: MODEL_ID, timestamp: new Date("2026-10-19T08:00:00Z") },
-    { type: "tool-call", toolCallId, toolName: "updateDecision", input: JSON.stringify(input) },
-    { type: "finish", finishReason: { unified: "tool-calls", raw: "tool_calls" }, usage },
-  ];
+  const json = JSON.stringify(input);
+  let deltaSent = false;
+  return structuredClone(TOOL_TURN.extracted.steps[0]!).flatMap((part): LanguageModelV4StreamPart[] => {
+    switch (part.type) {
+      case "tool-input-start":
+      case "tool-input-end":
+        return [{ ...part, id: toolCallId }];
+      case "tool-input-delta":
+        if (deltaSent) return [];
+        deltaSent = true;
+        return [{ ...part, id: toolCallId, delta: json }];
+      case "tool-call":
+        return [{ ...part, toolCallId, input: json }];
+      default:
+        return [part];
+    }
+  });
 }
 
+/** The captured text-only model call with `text` streamed in two deltas instead of the captured text. */
 function textStep(text: string): LanguageModelV4StreamPart[] {
-  return [
-    { type: "stream-start", warnings: [] },
-    { type: "text-start", id: "t-1" },
-    { type: "text-delta", id: "t-1", delta: text.slice(0, 10) },
-    { type: "text-delta", id: "t-1", delta: text.slice(10) },
-    { type: "text-end", id: "t-1" },
-    { type: "finish", finishReason: { unified: "stop", raw: "stop" }, usage },
-  ];
+  return structuredClone(QUESTION.extracted.steps[0]!).flatMap((part): LanguageModelV4StreamPart[] => {
+    if (part.type === "text-delta") return [];
+    if (part.type !== "text-start") return [part];
+    return [
+      part,
+      { type: "text-delta", id: part.id, delta: text.slice(0, 10) },
+      { type: "text-delta", id: part.id, delta: text.slice(10) },
+    ];
+  });
 }
 
 function mockModel(...steps: LanguageModelV4StreamPart[][]) {
@@ -174,6 +214,34 @@ describe("createChatStream", () => {
     const textPart = reply.parts.find((part) => part.type === "text");
     expect(textPart).toMatchObject({ text: "Zaktualizowałem decyzję na Przyjęte." });
     expect(reply.parts.indexOf(toolPart!)).toBeLessThan(reply.parts.indexOf(textPart!));
+  });
+
+  it("replays the captured tool-call turn: tool-updateDecision in output-available, then the captured text", async () => {
+    setModelsForTest({ decision: mockModel(...structuredClone(TOOL_TURN.extracted.steps)) });
+    const { finished } = await runTurn(caseRecord, userMessage("Laptop sam się wyłącza po 10 minutach."));
+
+    const captured = TOOL_TURN.extracted.toolCalls[0]!;
+    const reply = finished!.messages.at(-1)!;
+    const toolPart = reply.parts.find((part) => part.type === "tool-updateDecision");
+    expect(toolPart).toMatchObject({
+      toolCallId: captured.toolCallId,
+      state: "output-available",
+      input: accepted,
+      output: { status: TOOL_TURN.extracted.statusAfter, label: DECISION_STATUSES.ACCEPTED, reason: accepted.reason },
+    });
+    const text = reply.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
+    expect(text).toBe(TOOL_TURN.extracted.text);
+    expect(caseStore.get(caseRecord.id)!.currentStatus).toBe(TOOL_TURN.extracted.statusAfter);
+  });
+
+  it("replays the captured text-only turn: no tool part and the status stays unchanged", async () => {
+    setModelsForTest({ decision: mockModel(...structuredClone(QUESTION.extracted.steps)) });
+    const { finished } = await runTurn(caseRecord, userMessage("Ile trwa rozpatrzenie reklamacji?"));
+
+    const reply = finished!.messages.at(-1)!;
+    expect(reply.parts.some((part) => part.type === "tool-updateDecision")).toBe(false);
+    expect(reply.parts).toContainEqual(expect.objectContaining({ type: "text", text: QUESTION.extracted.text }));
+    expect(caseStore.get(caseRecord.id)!.currentStatus).toBe("NEEDS_INFO");
   });
 
   it("passes the full message list to onFinish: the history, the new user message and the reply (AC-27)", async () => {

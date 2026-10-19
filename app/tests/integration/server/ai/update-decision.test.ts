@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DECISION_STATUSES } from "@/lib/domain";
 import { pl } from "@/lib/i18n/pl";
@@ -51,14 +53,14 @@ const needsInfo: DecisionUpdate = {
   appliedRules: [{ ref: "§3 ust. 2", explanation: "Stan urządzenia musi być znany." }],
 };
 
-const accepted: DecisionUpdate = {
-  status: "ACCEPTED",
-  reason: "Urządzenie jest kompletne i bez śladów użytkowania.",
-  appliedRules: [
-    { ref: "§2 ust. 1", explanation: "Zwrot złożony w terminie 14 dni." },
-    { ref: "§3 ust. 2", explanation: "Urządzenie jest w stanie niezmienionym." },
-  ],
-};
+/** The updateDecision input the real model sent in `tests/fixtures/llm/chat-needs-info-answer.json`. */
+const capturedToolCall = (
+  JSON.parse(
+    readFileSync(path.resolve(process.cwd(), "tests/fixtures/llm/chat-needs-info-answer.json"), "utf8"),
+  ) as { extracted: { toolCalls: { toolName: string; input: string }[] } }
+).extracted.toolCalls[0]!;
+
+const accepted: DecisionUpdate = decisionUpdateSchema.parse(JSON.parse(capturedToolCall.input));
 
 type UpdateDecisionTool = ReturnType<typeof createUpdateDecisionTool>;
 
@@ -82,6 +84,12 @@ describe("updateDecision tool", () => {
     const updateDecision = createUpdateDecisionTool(caseId);
     expect(updateDecision.inputSchema).toBe(decisionUpdateSchema);
     expect(updateDecision.description).toMatch(/only when the status changes/);
+  });
+
+  it("accepts the captured model input as valid decisionUpdateSchema input for updateDecision", () => {
+    expect(capturedToolCall.toolName).toBe("updateDecision");
+    expect(accepted.status).toBe("ACCEPTED");
+    expect(accepted.appliedRules.length).toBeGreaterThan(0);
   });
 
   it("returns the card payload with the Polish label and the PRD §11.6 disclaimer (ADR-003 §4.6)", async () => {
