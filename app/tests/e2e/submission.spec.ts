@@ -114,6 +114,14 @@ async function expectFirstMessageStructure(page: Page): Promise<string> {
   await expect(badge).toHaveText(DECISION_STATUSES[status]);
   await expect(panel.getByText(caseId, { exact: true })).toBeVisible();
 
+  // The first message shows the same colored badge under "Decyzja", not bold text (AC-24, defect D2).
+  const messageBadge = conversation.locator("[data-status]");
+  await expect(messageBadge).toHaveCount(1);
+  await expect(messageBadge).toBeVisible();
+  await expect(messageBadge).toHaveAttribute("data-status", status);
+  await expect(messageBadge).toHaveText(DECISION_STATUSES[status]);
+  await expect(conversation.locator("strong", { hasText: new RegExp(`^${DECISION_STATUSES[status]}$`) })).toHaveCount(0);
+
   // Polish UI only and no technical details (AC-36, AC-39).
   const bodyText = await page.locator("body").innerText();
   expect(bodyText).not.toMatch(ENGLISH_DENYLIST);

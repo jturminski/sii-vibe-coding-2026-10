@@ -32,7 +32,7 @@ describe("composeFirstMessage", () => {
     const positions = [
       md.indexOf(fm.greeting),
       md.indexOf(`## ${fm.headings.decision}`),
-      md.indexOf(`**${DECISION_STATUSES[status]}**`),
+      md.indexOf(`\n\n${DECISION_STATUSES[status]}\n\n`),
       md.indexOf(decision.summary),
       md.indexOf(`## ${fm.headings.justification}`),
       md.indexOf(decision.photoFindings),
@@ -88,10 +88,20 @@ describe("composeFirstMessage", () => {
     const decision = decisionFor("ACCEPTED");
     const md = composeFirstMessage(CASE_ID, decision);
     expect(composeFirstMessage(CASE_ID, decision)).toBe(md);
-    expect(md).toContain(`\n\n## ${fm.headings.decision}\n\n**${DECISION_STATUSES.ACCEPTED}**\n\n`);
+    expect(md).toContain(`\n\n## ${fm.headings.decision}\n\n${DECISION_STATUSES.ACCEPTED}\n\n`);
     expect(md).toContain(`\n\n## ${fm.headings.justification}\n\n`);
     expect(md).toContain(`\n\n## ${fm.headings.nextSteps}\n\n`);
   });
+
+  it.each(STATUSES)(
+    "starts with the fixed greeting, Decyzja heading and plain %s label the UI swaps for a badge (AC-24)",
+    (status) => {
+      const md = composeFirstMessage(CASE_ID, decisionFor(status));
+      const head = `${fm.greeting}\n\n## ${fm.headings.decision}\n\n${DECISION_STATUSES[status]}\n\n`;
+      expect(md.startsWith(head)).toBe(true);
+      expect(md).not.toContain(`**${DECISION_STATUSES[status]}**`);
+    },
+  );
 
   it("skips a blank photo findings paragraph", () => {
     const md = composeFirstMessage(CASE_ID, decisionFor("REJECTED", { photoFindings: "  " }));

@@ -18,7 +18,8 @@ export function composeFirstMessage(caseId: string, decision: Decision): string 
   const blocks = [
     fm.greeting,
     `## ${fm.headings.decision}`,
-    `**${DECISION_STATUSES[decision.status]}**`,
+    // Plain label: the model reads it as history; the UI swaps this exact line for the status badge (AC-24).
+    DECISION_STATUSES[decision.status],
     decision.summary,
     `## ${fm.headings.justification}`,
     ...justification,

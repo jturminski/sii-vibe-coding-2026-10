@@ -46,7 +46,7 @@ const firstMessage: HscUIMessage = {
         "",
         "## Decyzja",
         "",
-        "**Przyjęte**",
+        "Przyjęte",
         "",
         "## Następne kroki",
         "",
@@ -80,6 +80,16 @@ describe("ChatScreen (PRD §9.2, ADR-004 §3)", () => {
     expect(items).toEqual(["Zapakuj urządzenie", "Odeślij je do sklepu"]);
     expect(log.textContent).not.toContain("## ");
     expect(log.textContent).not.toContain("**");
+  });
+
+  it("shows the initial status badge under Decyzja in the first message, not bold text (AC-24)", () => {
+    setup();
+    const log = screen.getByRole("log");
+    const badges = log.querySelectorAll("[data-status]");
+    expect(badges).toHaveLength(1);
+    expect(badges[0]).toHaveAttribute("data-status", "ACCEPTED");
+    expect(badges[0]).toHaveTextContent(DECISION_STATUSES.ACCEPTED);
+    expect(log.textContent?.split(DECISION_STATUSES.ACCEPTED)).toHaveLength(2);
   });
 
   it("does not render the data-case part as text", () => {
@@ -122,7 +132,9 @@ describe("ChatScreen (PRD §9.2, ADR-004 §3)", () => {
     const { user } = setup();
     const trigger = screen.getByRole("button", { name: pl.panel.title });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    const badge = () => document.querySelector('[data-status="ACCEPTED"]');
+    const log = screen.getByRole("log");
+    const badge = () =>
+      [...document.querySelectorAll('[data-status="ACCEPTED"]')].find((element) => !log.contains(element)) ?? null;
     expect(badge()).toBeNull();
 
     await user.click(trigger);
