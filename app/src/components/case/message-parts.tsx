@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageResponse } from "@/components/ai-elements/message";
+import { DecisionUpdatePart } from "@/components/case/decision-update-card";
 import type { HscUIMessage } from "@/lib/schemas";
 
 const timeFormat = new Intl.DateTimeFormat("pl-PL", {
@@ -9,12 +10,24 @@ const timeFormat = new Intl.DateTimeFormat("pl-PL", {
   minute: "2-digit",
 });
 
-/** Renders one message's parts (ADR-004 §3): markdown text; `data-case` only feeds the summary panel. */
+/**
+ * Renders one message's parts (ADR-004 §3): assistant text as markdown, customer text as typed,
+ * `tool-updateDecision` as the decision card; `data-case` only feeds the summary panel.
+ */
 export function MessageParts({ message }: { message: HscUIMessage }) {
   return message.parts.map((part, index) => {
+    const key = `${message.id}-${index}`;
     switch (part.type) {
       case "text":
-        return <MessageResponse key={`${message.id}-${index}`}>{part.text}</MessageResponse>;
+        return message.role === "user" ? (
+          <p key={key} className="whitespace-pre-wrap break-words">
+            {part.text}
+          </p>
+        ) : (
+          <MessageResponse key={key}>{part.text}</MessageResponse>
+        );
+      case "tool-updateDecision":
+        return <DecisionUpdatePart key={key} part={part} />;
       default:
         return null;
     }

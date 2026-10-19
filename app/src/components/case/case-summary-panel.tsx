@@ -5,13 +5,15 @@ import { cn } from "cn";
 import { DecisionBadge } from "@/components/case/decision-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CASE_TYPES, CATEGORIES } from "@/lib/domain";
+import { CASE_TYPES, CATEGORIES, type DecisionStatus } from "@/lib/domain";
 import { pl } from "@/lib/i18n/pl";
 import type { CaseDataPart } from "@/lib/schemas";
 
 type CaseSummaryPanelProps = {
   caseData: CaseDataPart;
   imagePreviewUrl: string;
+  /** Current status from the chat (ADR-004 §3); defaults to the initial `data-case` status. */
+  status?: DecisionStatus;
   className?: string;
 };
 
@@ -69,12 +71,12 @@ function Reason({ text }: { text: string }) {
 }
 
 /** Case summary (PRD §9.2, ADR-004 §3): case data, thumbnail with a full-size dialog and the decision badge. */
-export function CaseSummaryPanel({ caseData, imagePreviewUrl, className }: CaseSummaryPanelProps) {
+export function CaseSummaryPanel({ caseData, imagePreviewUrl, status, className }: CaseSummaryPanelProps) {
   return (
     <section aria-label={pl.panel.title} className={cn("flex flex-col gap-4", className)}>
       <dl className="flex flex-col gap-3">
         <Field label={pl.panel.status}>
-          <DecisionBadge status={caseData.status} className="h-auto whitespace-normal" />
+          <DecisionBadge status={status ?? caseData.status} className="h-auto whitespace-normal" />
         </Field>
         <Field label={pl.panel.caseId}>
           <span className="font-mono">{caseData.caseId}</span>

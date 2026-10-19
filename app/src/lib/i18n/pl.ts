@@ -57,6 +57,11 @@ export const pl = {
     updatingDecision: "Aktualizuję decyzję…",
     newCase: "Nowe zgłoszenie",
     conversationLabel: "Rozmowa",
+    inputLabel: "Twoja wiadomość",
+    charCount: "Liczba znaków",
+    typing: "Asystent pisze odpowiedź…",
+    decisionReason: "Powód zmiany",
+    decisionRules: "Podstawa w regulaminie",
   },
   panel: {
     caseId: "Numer sprawy",

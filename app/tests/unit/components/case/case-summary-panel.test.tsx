@@ -18,9 +18,9 @@ const caseData: CaseDataPart = {
   status: "MANUAL_REVIEW",
 };
 
-function setup(overrides: Partial<CaseDataPart> = {}) {
+function setup(overrides: Partial<CaseDataPart> = {}, status?: CaseDataPart["status"]) {
   const user = userEvent.setup();
-  render(<CaseSummaryPanel caseData={{ ...caseData, ...overrides }} imagePreviewUrl="blob:preview" />);
+  render(<CaseSummaryPanel caseData={{ ...caseData, ...overrides }} imagePreviewUrl="blob:preview" status={status} />);
   return { user };
 }
 
@@ -45,6 +45,12 @@ describe("CaseSummaryPanel (PRD §9.2, AC-25)", () => {
     setup();
     const badge = screen.getByText(DECISION_STATUSES.MANUAL_REVIEW);
     expect(badge).toHaveAttribute("data-status", "MANUAL_REVIEW");
+  });
+
+  it("shows the current status when it differs from the initial one (AC-30)", () => {
+    setup({}, "NEEDS_INFO");
+    expect(screen.getByText(DECISION_STATUSES.NEEDS_INFO)).toHaveAttribute("data-status", "NEEDS_INFO");
+    expect(screen.queryByText(DECISION_STATUSES.MANUAL_REVIEW)).not.toBeInTheDocument();
   });
 
   it("clamps the reason to 3 lines", () => {

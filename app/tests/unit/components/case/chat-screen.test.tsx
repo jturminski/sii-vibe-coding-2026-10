@@ -106,9 +106,13 @@ describe("ChatScreen (PRD §9.2, ADR-004 §3)", () => {
     expect(log.querySelector(".is-user")).toBeNull();
   });
 
-  it("has no message input yet", () => {
+  it("has a message input with the Polish placeholder (PRD §9.2)", () => {
     setup();
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: pl.chat.inputLabel })).toHaveAttribute(
+      "placeholder",
+      pl.chat.inputPlaceholder,
+    );
+    expect(screen.getByRole("button", { name: pl.chat.send })).toBeInTheDocument();
   });
 
   it("keeps the summary collapsed below 1024px and opens it on demand (AC-40)", async () => {
