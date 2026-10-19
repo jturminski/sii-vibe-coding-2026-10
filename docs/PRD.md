@@ -66,6 +66,7 @@ The store needs a first-line assessment that applies the written terms consisten
 4. The agent issues an **Updated decision** with status Accept, Reject or Manual review.
 5. If the information is still insufficient after 2 rounds of questions, the agent sets the status to **Manual review**.
 6. Image re-upload in the chat is not supported. If a new photo is essential, the agent tells the customer to start a new case with a better photo.
+7. Form data (case type, category, model, purchase date) cannot be corrected in the chat. If the customer says a form field was wrong (for example "to jest smartfon, nie telewizor"), the agent tells them to start a new case with the correct data and does not change the status to Accept based on the correction; the maximum change is to Manual review (AC-31b).
 
 ### 4.4 Follow-up chat and decision revision
 1. The customer types a message (a question or additional information) and sends it.
@@ -146,6 +147,7 @@ The store needs a first-line assessment that applies the written terms consisten
 - **AC-30** When the agent changes the decision, the reply contains a block titled "Zaktualizowana decyzja" with the new status and the reason for the change, and the status in the case summary panel updates to the new status.
 - **AC-31** A Reject based on visible damage is never changed to Accept based only on the customer's statements. The maximum change is to Manual review.
 - **AC-31a** When the photo shows no evidence that confirms the reported fault (for example an internal fault such as a laptop shutting down, a fault not visible in the photo, or a cause that cannot be determined), the agent does not change the status to Accept based only on the customer's statements in the chat. The maximum change is to Manual review ("Do weryfikacji przez specjalistę").
+- **AC-31b** When the customer corrects form data in the chat (case type, category, model or purchase date), the agent does not change the status to Accept. It tells the customer to start a new case ("Nowe zgłoszenie") with the correct data; the maximum status change is to Manual review.
 - **AC-32** After 2 agent replies with status "Potrzebne dodatkowe informacje" without resolution, the next decision is "Do weryfikacji przez specjalistę".
 - **AC-33** A case allows up to 20 customer messages. After the 20th, the input is disabled and the system shows "Osiągnięto limit wiadomości w tym zgłoszeniu. Rozpocznij nowe zgłoszenie lub skontaktuj się ze sklepem, podając numer sprawy."
 
