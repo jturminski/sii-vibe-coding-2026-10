@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessageStreamWriter } from "ai";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -142,7 +142,7 @@ describe("CaseApp (ADR-004 §3 page and state machine, AC-11, AC-34)", () => {
     expect(screen.queryByText(pl.processing.analyzingImage)).not.toBeInTheDocument();
 
     deciding.release();
-    expect(await screen.findByTestId("chat-placeholder")).toBeInTheDocument();
+    expect(await screen.findByTestId("chat-screen")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: pl.form.submit })).not.toBeInTheDocument();
     expect(screen.queryByText(pl.processing.preparingDecision)).not.toBeInTheDocument();
   });
@@ -160,7 +160,7 @@ describe("CaseApp (ADR-004 §3 page and state machine, AC-11, AC-34)", () => {
     await user.click(submitButton());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     gate.release();
-    await screen.findByTestId("chat-placeholder");
+    await screen.findByTestId("chat-screen");
   });
 
   it("returns to the form with the banner and keeps the values and the file after an error chunk (AC-34)", async () => {
@@ -177,7 +177,7 @@ describe("CaseApp (ADR-004 §3 page and state machine, AC-11, AC-34)", () => {
     expect(screen.getByRole("radio", { name: "Zwrot" })).toBeChecked();
     expect(screen.getByText(file.name)).toBeInTheDocument();
     expect(screen.queryByText(pl.processing.preparingDecision)).not.toBeInTheDocument();
-    expect(screen.queryByTestId("chat-placeholder")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-screen")).not.toBeInTheDocument();
   });
 
   it("returns to the form with the banner after a network error (AC-34)", async () => {
@@ -212,6 +212,125 @@ describe("CaseApp (ADR-004 §3 page and state machine, AC-11, AC-34)", () => {
     expect(submitButton()).toBeEnabled();
     expect(modelField()).toHaveValue("Dell XPS 13");
     expect(screen.getByText(file.name)).toBeInTheDocument();
+  });
+});
+
+describe("CaseApp new case and leave guard (PRD §4.7, AC-37, AC-38)", () => {
+  /** Submission → chat; DELETE → 204; the chat route answers with `chat`. */
+  function routedFetch(chat: () => Response = () => new Response(null, { status: 500 })) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      if (String(input).endsWith("/chat")) return chat();
+      return streamResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  const deleteCalls = (fetchMock: ReturnType<typeof routedFetch>) =>
+    fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE");
+
+  function leaveIsGuarded(): boolean {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  async function reachChat(chat?: () => Response) {
+    const fetchMock = routedFetch(chat);
+    const view = setup();
+    await fillValid(view.user, view.container, imageFile());
+    await view.user.click(submitButton());
+    await screen.findByTestId("chat-screen");
+    return { ...view, fetchMock };
+  }
+
+  const newCaseButton = () => screen.queryByRole("button", { name: pl.chat.newCase });
+
+  it("shows Nowe zgłoszenie only in the chat state", async () => {
+    routedFetch();
+    setup();
+    expect(newCaseButton()).not.toBeInTheDocument();
+    cleanup();
+    await reachChat();
+    expect(newCaseButton()).toBeInTheDocument();
+  });
+
+  it("cancel keeps the chat unchanged and sends no DELETE (AC-38)", async () => {
+    const { user, fetchMock } = await reachChat();
+    // The form's dropzone revokes its own preview on unmount; only calls after this point matter.
+    const revokesBefore = vi.mocked(URL.revokeObjectURL).mock.calls.length;
+
+    await user.click(newCaseButton()!);
+    await user.click(await screen.findByRole("button", { name: pl.dialog.cancel }));
+
+    expect(screen.getByTestId("chat-screen")).toBeInTheDocument();
+    expect(screen.getByText("Wstępna decyzja")).toBeInTheDocument();
+    expect(deleteCalls(fetchMock)).toHaveLength(0);
+    expect(vi.mocked(URL.revokeObjectURL).mock.calls.length).toBe(revokesBefore);
+  });
+
+  it("confirm sends one DELETE and shows an empty form (AC-38)", async () => {
+    const { user, fetchMock } = await reachChat();
+    const revokesBefore = vi.mocked(URL.revokeObjectURL).mock.calls.length;
+
+    await user.click(newCaseButton()!);
+    await user.click(await screen.findByRole("button", { name: pl.dialog.confirm }));
+
+    expect(await screen.findByRole("button", { name: pl.form.submit })).toBeEnabled();
+    expect(vi.mocked(URL.revokeObjectURL).mock.calls.slice(revokesBefore)).toContainEqual(["blob:preview"]);
+    expect(screen.queryByTestId("chat-screen")).not.toBeInTheDocument();
+    expect(modelField()).toHaveValue("");
+    expect(screen.getByRole("radio", { name: "Zwrot" })).not.toBeChecked();
+    expect(newCaseButton()).not.toBeInTheDocument();
+    const deletes = deleteCalls(fetchMock);
+    expect(deletes).toHaveLength(1);
+    expect(String(deletes[0]?.[0])).toBe(`/api/cases/${caseData.caseId}`);
+  });
+
+  it("starts a new case even when the DELETE fails", async () => {
+    const fetchMock = routedFetch();
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "DELETE") throw new TypeError("Failed to fetch");
+      if (String(input).endsWith("/chat")) return new Response(null, { status: 500 });
+      return streamResponse({});
+    });
+    const { user, container } = setup();
+    await fillValid(user, container, imageFile());
+    await user.click(submitButton());
+    await screen.findByTestId("chat-screen");
+
+    await user.click(newCaseButton()!);
+    await user.click(await screen.findByRole("button", { name: pl.dialog.confirm }));
+
+    expect(await screen.findByRole("button", { name: pl.form.submit })).toBeEnabled();
+  });
+
+  it("guards leaving the page only in the chat state (AC-37)", async () => {
+    routedFetch();
+    setup();
+    expect(leaveIsGuarded()).toBe(false);
+    cleanup();
+
+    const { user } = await reachChat();
+    expect(leaveIsGuarded()).toBe(true);
+
+    await user.click(newCaseButton()!);
+    await user.click(await screen.findByRole("button", { name: pl.dialog.confirm }));
+    await screen.findByRole("button", { name: pl.form.submit });
+    expect(leaveIsGuarded()).toBe(false);
+  });
+
+  it("session expired offers Nowe zgłoszenie that resets to the form without a dialog", async () => {
+    const { user } = await reachChat(() => Response.json({ error: "CASE_NOT_FOUND" }, { status: 404 }));
+
+    await user.type(screen.getByRole("textbox", { name: pl.chat.inputLabel }), "Halo?{Enter}");
+    const notice = (await screen.findByText(pl.errors.sessionExpired)).parentElement!;
+    await user.click(within(notice).getByRole("button", { name: pl.chat.newCase }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: pl.form.submit })).toBeEnabled();
+    expect(modelField()).toHaveValue("");
   });
 });
 

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useReducer } from "react";
+import { AppHeader } from "@/components/case/app-header";
 import { CaseForm } from "@/components/case/case-form";
 import { ChatScreen } from "@/components/case/chat-screen";
+import { NewCaseDialog } from "@/components/case/new-case-dialog";
 import { ProcessingIndicator } from "@/components/case/processing-indicator";
 import { ProcessingFailed, submitCase, type SubmissionFieldErrors } from "@/components/case/submit-case";
+import { useLeaveGuard } from "@/components/case/use-leave-guard";
 import { pl } from "@/lib/i18n/pl";
 import type { CaseDataPart, CaseForm as CaseFormValues, HscUIMessage, StageDataPart } from "@/lib/schemas";
 
@@ -59,7 +62,7 @@ export function caseAppReducer(state: CaseAppState, action: CaseAppAction): Case
   }
 }
 
-/** The single page: case form, processing, then chat (ADR-004 §3, F3). */
+/** The single page: header, case form, processing, then chat (ADR-004 §3, F3). */
 export function CaseApp() {
   const [state, dispatch] = useReducer(caseAppReducer, { status: "form" });
 
@@ -69,6 +72,9 @@ export function CaseApp() {
     if (!imagePreviewUrl) return;
     return () => URL.revokeObjectURL(imagePreviewUrl);
   }, [imagePreviewUrl]);
+
+  // AC-37: the chat always holds the first message, so the guard is active for the whole chat state.
+  useLeaveGuard(state.status === "chat");
 
   async function handleSubmit(values: CaseFormValues, file: File) {
     dispatch({ type: "SUBMIT", draft: { values, file } });
@@ -92,16 +98,26 @@ export function CaseApp() {
   }
 
   if (state.status === "chat") {
-    // data-testid kept for the existing CaseApp tests (they still query "chat-placeholder").
+    const { caseId } = state;
+    const startNewCase = () => dispatch({ type: "NEW_CASE" });
+    const confirmNewCase = () => {
+      // Fire-and-forget (ADR-004 §5): the response and any network error are ignored.
+      fetch(`/api/cases/${caseId}`, { method: "DELETE" }).catch(() => {});
+      startNewCase();
+    };
     return (
-      <main data-testid="chat-placeholder" className="flex w-full flex-1 flex-col">
-        <ChatScreen
-          caseId={state.caseId}
-          caseData={state.caseData}
-          firstMessage={state.firstMessage}
-          imagePreviewUrl={state.imagePreviewUrl}
-        />
-      </main>
+      <>
+        <AppHeader actions={<NewCaseDialog onConfirm={confirmNewCase} />} />
+        <main className="flex w-full flex-1 flex-col">
+          <ChatScreen
+            caseId={caseId}
+            caseData={state.caseData}
+            firstMessage={state.firstMessage}
+            imagePreviewUrl={state.imagePreviewUrl}
+            onNewCase={startNewCase}
+          />
+        </main>
+      </>
     );
   }
 
@@ -109,16 +125,19 @@ export function CaseApp() {
   const draft = state.draft;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-      <p className="text-base text-muted-foreground">{pl.form.intro}</p>
-      <CaseForm
-        defaultValues={draft ? { ...draft.values, image: draft.file } : undefined}
-        disabled={submitting}
-        bannerError={state.status === "form" ? state.bannerError : undefined}
-        serverErrors={state.status === "form" ? state.serverErrors : undefined}
-        onSubmit={handleSubmit}
-      />
-      {submitting ? <ProcessingIndicator stage={state.stage} /> : null}
-    </main>
+    <>
+      <AppHeader />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <p className="text-base text-muted-foreground">{pl.form.intro}</p>
+        <CaseForm
+          defaultValues={draft ? { ...draft.values, image: draft.file } : undefined}
+          disabled={submitting}
+          bannerError={state.status === "form" ? state.bannerError : undefined}
+          serverErrors={state.status === "form" ? state.serverErrors : undefined}
+          onSubmit={handleSubmit}
+        />
+        {submitting ? <ProcessingIndicator stage={state.stage} /> : null}
+      </main>
+    </>
   );
 }

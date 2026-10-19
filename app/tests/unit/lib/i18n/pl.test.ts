@@ -108,6 +108,14 @@ describe("pl strings", () => {
     expect(pl.chat.conversationLabel).toBe("Rozmowa");
   });
 
+  it("has the interactive chat texts (AC-28, AC-29, AC-30)", () => {
+    expect(pl.chat.inputLabel).toBe("Twoja wiadomość");
+    expect(pl.chat.charCount).toBe("Liczba znaków");
+    expect(pl.chat.typing).toBe("Asystent pisze odpowiedź…");
+    expect(pl.chat.decisionReason).toBe("Powód zmiany");
+    expect(pl.chat.decisionRules).toBe("Podstawa w regulaminie");
+  });
+
   it("has the first-message parts and the mandatory disclaimer (AC-24, §11.6, §11.8)", () => {
     expect(pl.firstMessage.greeting).toBe("Dzień dobry!");
     expect(pl.firstMessage.headings).toEqual({
